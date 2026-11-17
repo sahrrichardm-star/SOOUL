@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
-type AuthMode = 'signin' | 'signup' | 'reset'
+type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 
 const pillars = [
   { icon: BookHeart, title: 'Stories', description: 'Preserve the moments, memories and lessons that make your life uniquely yours.' },
@@ -33,8 +33,8 @@ function BrandMark({ large = false }: { large?: boolean }) {
   )
 }
 
-function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthenticated: (user: User) => void }) {
-  const [mode, setMode] = useState<AuthMode>('signup')
+function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClose: () => void; onAuthenticated: (user: User) => void; initialMode?: AuthMode }) {
+  const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -61,7 +61,7 @@ function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
       setError('Use a password with at least 8 characters.')
       return
     }
-    if (mode === 'signup' && password !== confirmPassword) {
+    if ((mode === 'signup' || mode === 'update-password') && password !== confirmPassword) {
       setError('Your passwords do not match.')
       return
     }
@@ -90,12 +90,19 @@ function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
         })
         if (authError) throw authError
         if (data.user) onAuthenticated(data.user)
-      } else {
+      } else if (mode === 'reset') {
         const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: window.location.origin,
         })
         if (authError) throw authError
         setMessage('If an account exists for that email, a password reset link has been sent.')
+      } else {
+        const { error: authError } = await supabase.auth.updateUser({ password })
+        if (authError) throw authError
+        setMessage('Your password has been updated. You can now sign in with your new password.')
+        setMode('signin')
+        setPassword('')
+        setConfirmPassword('')
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Something went wrong. Please try again.')
@@ -104,8 +111,8 @@ function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
     }
   }
 
-  const heading = mode === 'signup' ? 'Begin your legacy.' : mode === 'signin' ? 'Welcome back.' : 'Reset your password.'
-  const submitLabel = mode === 'signup' ? 'Create account' : mode === 'signin' ? 'Sign in' : 'Send reset link'
+  const heading = mode === 'signup' ? 'Begin your legacy.' : mode === 'signin' ? 'Welcome back.' : mode === 'reset' ? 'Reset your password.' : 'Choose a new password.'
+  const submitLabel = mode === 'signup' ? 'Create account' : mode === 'signin' ? 'Sign in' : mode === 'reset' ? 'Send reset link' : 'Update password'
 
   return (
     <div className="auth-screen">
@@ -117,7 +124,7 @@ function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
         <div className="eyebrow auth-eyebrow"><LockKeyhole size={14} /> YOUR PRIVATE SPACE</div>
         <h1>{heading}</h1>
         <p className="auth-intro">
-          {mode === 'signup' ? 'Create a place for the things you want to keep and pass on.' : mode === 'signin' ? 'Continue building the story that matters.' : 'We will send you a secure link to choose a new password.'}
+          {mode === 'signup' ? 'Create a place for the things you want to keep and pass on.' : mode === 'signin' ? 'Continue building the story that matters.' : mode === 'reset' ? 'We will send you a secure link to choose a new password.' : 'Set a new password to secure your SOOUL account.'}
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -127,7 +134,7 @@ function AuthPanel({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
             <label htmlFor="auth-password">Password</label>
             <div className="auth-input-wrap"><LockKeyhole size={17} /><input id="auth-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></div>
           </>}
-          {mode === 'signup' && <>
+          {(mode === 'signup' || mode === 'update-password') && <>
             <label htmlFor="auth-confirm">Confirm password</label>
             <div className="auth-input-wrap"><LockKeyhole size={17} /><input id="auth-confirm" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Enter your password again" /></div>
           </>}
@@ -180,8 +187,13 @@ export default function App() {
     supabase.auth.getUser().then(({ data }) => {
       if (active) setUser(data.user)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return
+      setUser(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update-password')
+        setAuthOpen(true)
+      }
     })
     return () => {
       active = false
@@ -250,7 +262,7 @@ export default function App() {
         <span>© {new Date().getFullYear()} SOOUL. A legacy beyond generations.</span>
         <span className="connection"><span className={isSupabaseConfigured ? 'status-dot online' : 'status-dot'} />{isSupabaseConfigured ? 'Secure connection configured' : 'Backend configuration pending'}</span>
       </footer>
-      {authOpen && <AuthPanel onClose={() => setAuthOpen(false)} onAuthenticated={(nextUser) => { setUser(nextUser); setAuthOpen(false) }} />}
+      {authOpen && <AuthPanel initialMode={authMode} onClose={() => setAuthOpen(false)} onAuthenticated={(nextUser) => { setUser(nextUser); setAuthOpen(false) }} />}
     </main>
   )
 }

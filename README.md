@@ -38,7 +38,7 @@ These are Vite build-time values. After adding them, trigger a new deployment so
 
 In the existing SOOULL Supabase project, add the deployed Worker origin to Authentication → URL Configuration → Redirect URLs:
 
-`https://sooull.sahrrichardm.workers.dev/**`
+`https://sooul.sahrrichardm.workers.dev/**`
 
 Also add your eventual custom domain there when one is configured. The application uses the current site origin as the email confirmation and password-reset redirect.
 

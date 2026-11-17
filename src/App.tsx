@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
-  ArrowLeft, ArrowUpRight, BookHeart, Infinity, LockKeyhole,
-  Mail, ShieldCheck, Sparkles, X,
+  ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Heart, Infinity, LockKeyhole,
+  Mail, Pencil, Plus, Search, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
+type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
+type Story = { id: string; user_id: string; title: string; content: string; category: StoryCategory; story_date: string | null; is_favorite: boolean; created_at: string; updated_at: string }
 
 const pillars = [
   { icon: BookHeart, title: 'Stories', description: 'Preserve the moments, memories and lessons that make your life uniquely yours.' },
@@ -54,7 +56,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
     setMessage('')
 
     if (!supabase) {
-      setError('SOOUL authentication is not configured yet. The Supabase project URL and publishable key must be added to Cloudflare environment variables.')
+      setError('SOOULL authentication is not configured yet. The Supabase project URL and publishable key must be added to Cloudflare environment variables.')
       return
     }
     if (mode !== 'reset' && password.length < 8) {
@@ -116,12 +118,12 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       <div className="auth-panel">
         <button className="icon-button auth-close" type="button" onClick={onClose} aria-label="Close"><X size={19} /></button>
         <a className="brand auth-brand" href="/" onClick={(event) => { event.preventDefault(); onClose() }}>
-          <BrandMark /><span>SOOUL</span>
+          <BrandMark /><span>SOOULL</span>
         </a>
         <div className="eyebrow auth-eyebrow"><LockKeyhole size={14} /> YOUR PRIVATE SPACE</div>
         <h1>{heading}</h1>
         <p className="auth-intro">
-          {mode === 'signup' ? 'Create a place for the things you want to keep and pass on.' : mode === 'signin' ? 'Continue building the story that matters.' : mode === 'reset' ? 'We will send you a secure link to choose a new password.' : 'Set a new password to secure your SOOUL account.'}
+          {mode === 'signup' ? 'Create a place for the things you want to keep and pass on.' : mode === 'signin' ? 'Continue building the story that matters.' : mode === 'reset' ? 'We will send you a secure link to choose a new password.' : 'Set a new password to secure your SOOULL account.'}
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -144,7 +146,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
 
         <div className="auth-switches">
           {mode === 'signup' ? <span>Already have an account? <button type="button" onClick={() => changeMode('signin')}>Sign in</button></span>
-            : mode === 'signin' ? <><span>New to SOOUL? <button type="button" onClick={() => changeMode('signup')}>Create an account</button></span><button type="button" onClick={() => changeMode('reset')}>Forgot password?</button></>
+            : mode === 'signin' ? <><span>New to SOOULL? <button type="button" onClick={() => changeMode('signup')}>Create an account</button></span><button type="button" onClick={() => changeMode('reset')}>Forgot password?</button></>
             : <button type="button" onClick={() => changeMode('signin')}><ArrowLeft size={14} /> Back to sign in</button>}
         </div>
         <p className="auth-footnote">Your story belongs to you. Always.</p>
@@ -154,23 +156,178 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
 }
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const [stories, setStories] = useState<Story[]>([])
+  const [loadingStories, setLoadingStories] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingStory, setEditingStory] = useState<Story | null>(null)
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [category, setCategory] = useState<StoryCategory>('life')
+  const [storyDate, setStoryDate] = useState('')
+
+  async function loadStories() {
+    if (!supabase) {
+      setError('The Supabase connection is not configured. Check the Cloudflare build variables.')
+      setLoadingStories(false)
+      return
+    }
+    setLoadingStories(true)
+    setError('')
+    const { data, error: queryError } = await supabase
+      .from('stories')
+      .select('id,user_id,title,content,category,story_date,is_favorite,created_at,updated_at')
+      .order('created_at', { ascending: false })
+    if (queryError) setError(queryError.message)
+    else setStories((data ?? []) as Story[])
+    setLoadingStories(false)
+  }
+
+  useEffect(() => { void loadStories() }, [])
+
+  function openNewStory() {
+    setEditingStory(null)
+    setTitle('')
+    setContent('')
+    setCategory('life')
+    setStoryDate('')
+    setError('')
+    setEditorOpen(true)
+  }
+
+  function openEditStory(story: Story) {
+    setEditingStory(story)
+    setTitle(story.title)
+    setContent(story.content)
+    setCategory(story.category)
+    setStoryDate(story.story_date ?? '')
+    setError('')
+    setEditorOpen(true)
+  }
+
+  async function saveStory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase) return
+    setSaving(true)
+    setError('')
+    const values = {
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      story_date: storyDate || null,
+    }
+    const result = editingStory
+      ? await supabase.from('stories').update(values).eq('id', editingStory.id).select().single()
+      : await supabase.from('stories').insert({ ...values, user_id: user.id }).select().single()
+
+    if (result.error) {
+      setError(result.error.message)
+    } else {
+      const saved = result.data as Story
+      setStories((current) => editingStory
+        ? current.map((story) => story.id === saved.id ? saved : story)
+        : [saved, ...current])
+      setEditorOpen(false)
+    }
+    setSaving(false)
+  }
+
+  async function removeStory(story: Story) {
+    if (!supabase || !window.confirm(`Delete “${story.title}”? This cannot be undone.`)) return
+    const { error: deleteError } = await supabase.from('stories').delete().eq('id', story.id)
+    if (deleteError) setError(deleteError.message)
+    else setStories((current) => current.filter((item) => item.id !== story.id))
+  }
+
+  async function toggleFavorite(story: Story) {
+    if (!supabase) return
+    const nextValue = !story.is_favorite
+    const { error: updateError } = await supabase.from('stories').update({ is_favorite: nextValue }).eq('id', story.id)
+    if (updateError) setError(updateError.message)
+    else setStories((current) => current.map((item) => item.id === story.id ? { ...item, is_favorite: nextValue } : item))
+  }
+
+  const visibleStories = stories.filter((story) =>
+    `${story.title} ${story.content} ${story.category}`.toLowerCase().includes(search.toLowerCase()),
+  )
+  const displayName = user.email?.split('@')[0] ?? 'Member'
+
   return (
     <main className="member-shell">
-      <header className="topbar">
-        <a className="brand" href="/"><BrandMark /><span>SOOUL</span></a>
-        <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
-      </header>
-      <section className="member-welcome">
-        <div className="eyebrow"><Sparkles size={15} /> YOUR PRIVATE SPACE</div>
-        <h1>Welcome to your<br /><span>SOOUL.</span></h1>
-        <p>You are signed in as <strong>{user.email}</strong>.</p>
-        <div className="coming-card">
-          <BrandMark large />
-          <h2>Your legacy starts here.</h2>
-          <p>Your private space is ready. We are building the tools to help you capture your stories, preserve your values and keep your wishes safe.</p>
-          <span className="coming-label">STORIES · LEGACY · SAFEKEEPING</span>
+      <header className="topbar member-topbar">
+        <a className="brand" href="/"><BrandMark /><span>SOOULLL</span></a>
+        <div className="member-top-actions">
+          <span className="member-email">{user.email}</span>
+          <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
         </div>
+      </header>
+
+      <section className="dashboard-heading">
+        <div>
+          <div className="eyebrow"><Sparkles size={14} /> YOUR PRIVATE SPACE</div>
+          <h1>Welcome back, <span>{displayName}.</span></h1>
+          <p>Your stories are yours to keep. Add a memory whenever you're ready.</p>
+        </div>
+        <button className="dashboard-primary" type="button" onClick={openNewStory}><Plus size={17} /> Write a story</button>
       </section>
+
+      <section className="dashboard-stats" aria-label="Your story summary">
+        <div className="dashboard-stat"><span className="stat-icon"><BookOpen size={18} /></span><strong>{stories.length}</strong><span>Stories saved</span></div>
+        <div className="dashboard-stat"><span className="stat-icon"><Heart size={18} /></span><strong>{stories.filter((story) => story.is_favorite).length}</strong><span>Favourites</span></div>
+        <div className="dashboard-stat"><span className="stat-icon"><CalendarDays size={18} /></span><strong>{stories.filter((story) => story.story_date).length}</strong><span>Dated memories</span></div>
+      </section>
+
+      <section className="stories-section">
+        <div className="stories-toolbar">
+          <div><span className="eyebrow">YOUR COLLECTION</span><h2>Life stories</h2></div>
+          <label className="story-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your stories" /></label>
+        </div>
+
+        {error && <p className="form-feedback form-error" role="alert">{error}</p>}
+
+        {loadingStories ? <div className="stories-empty"><span className="loading-ring" />Loading your stories…</div>
+          : visibleStories.length === 0 ? <div className="stories-empty">
+              <span className="empty-icon"><BookHeart size={25} /></span>
+              <h3>{search ? 'No matching stories.' : 'Your story collection starts here.'}</h3>
+              <p>{search ? 'Try another word or clear your search.' : 'Capture a moment, a lesson, a person or a memory you never want to lose.'}</p>
+              {!search && <button className="dashboard-primary" type="button" onClick={openNewStory}><Plus size={16} /> Write your first story</button>}
+            </div>
+          : <div className="story-grid">{visibleStories.map((story) => (
+              <article className="story-card" key={story.id}>
+                <div className="story-card-top"><span className="story-category">{story.category}</span><button className={story.is_favorite ? 'favorite-button active' : 'favorite-button'} type="button" onClick={() => void toggleFavorite(story)} aria-label={story.is_favorite ? 'Remove from favourites' : 'Add to favourites'}><Heart size={17} fill={story.is_favorite ? 'currentColor' : 'none'} /></button></div>
+                <h3>{story.title}</h3>
+                <p>{story.content || 'A story saved for another day. Add the details whenever you are ready.'}</p>
+                <div className="story-card-bottom"><span>{story.story_date ? new Date(`${story.story_date}T12:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' }) : new Date(story.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span><div><button type="button" onClick={() => openEditStory(story)} aria-label={`Edit ${story.title}`}><Pencil size={15} /></button><button type="button" onClick={() => void removeStory(story)} aria-label={`Delete ${story.title}`}><Trash2 size={15} /></button></div></div>
+              </article>
+            ))}</div>}
+      </section>
+
+      <footer className="dashboard-footer"><span>SOOULLL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
+
+      {editorOpen && <div className="auth-screen story-editor-screen" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditorOpen(false) }}>
+        <section className="auth-panel story-editor" role="dialog" aria-modal="true" aria-labelledby="story-editor-title">
+          <button className="icon-button auth-close" type="button" onClick={() => setEditorOpen(false)} aria-label="Close"><X size={19} /></button>
+          <div className="eyebrow"><BookHeart size={14} /> PRESERVE A MEMORY</div>
+          <h2 id="story-editor-title">{editingStory ? 'Edit your story.' : 'A story worth keeping.'}</h2>
+          <p className="auth-intro">Write in your own words. You can return and change this whenever you wish.</p>
+          <form className="auth-form" onSubmit={saveStory}>
+            <label htmlFor="story-title">Story title</label>
+            <input className="story-field" id="story-title" maxLength={160} required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Give this memory a name" />
+            <label htmlFor="story-category">Category</label>
+            <select className="story-field" id="story-category" value={category} onChange={(event) => setCategory(event.target.value as StoryCategory)}>
+              <option value="life">Life</option><option value="family">Family</option><option value="milestones">Milestones</option><option value="lessons">Lessons</option><option value="other">Other</option>
+            </select>
+            <label htmlFor="story-date">When did it happen? <span className="optional-label">Optional</span></label>
+            <input className="story-field" id="story-date" type="date" value={storyDate} onChange={(event) => setStoryDate(event.target.value)} />
+            <label htmlFor="story-content">Your story</label>
+            <textarea className="story-field story-content-field" id="story-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Start wherever feels right…" rows={7} />
+            {error && <p className="form-feedback form-error" role="alert">{error}</p>}
+            <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : editingStory ? 'Save changes' : 'Save story'}<ArrowUpRight size={17} /></button>
+          </form>
+        </section>
+      </div>}
     </main>
   )
 }
@@ -215,8 +372,8 @@ export default function App() {
   return (
     <main className="site-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="SOOUL home">
-          <BrandMark /><span>SOOUL</span>
+        <a className="brand" href="/" aria-label="SOOULL home">
+          <BrandMark /><span>SOOULL</span>
         </a>
         <div className="topbar-actions">
           <span className="topbar-note">Your life. Your legacy.</span>
@@ -231,12 +388,12 @@ export default function App() {
           <p className="hero-copy">A thoughtful place for the stories, memories, values and wishes you want to preserve — and pass on beyond generations.</p>
           <button className="primary-link" type="button" onClick={() => { setAuthMode('signup'); setAuthOpen(true) }}>Begin your story <ArrowUpRight size={17} /></button>
         </div>
-        <div className="hero-artwork" aria-label="SOOUL flower and infinity emblem">
+        <div className="hero-artwork" aria-label="SOOULL flower and infinity emblem">
           <div className="art-orbit art-orbit-outer" />
           <div className="art-orbit art-orbit-inner" />
           <div className="art-glow" />
           <BrandMark large />
-          <div className="art-wordmark">SOOUL</div>
+          <div className="art-wordmark">SOOULL</div>
           <div className="art-tagline">YOUR LIFE · YOUR LEGACY · BEYOND GENERATIONS</div>
           <div className="art-rule"><span /></div>
         </div>
@@ -247,7 +404,7 @@ export default function App() {
         <div className="section-heading">
           <span className="eyebrow">BUILT AROUND WHAT MATTERS</span>
           <h2 id="pillars-heading">Some things deserve to outlast us.</h2>
-          <p>SOOUL is being built to help you keep them close and pass them forward.</p>
+          <p>SOOULL is being built to help you keep them close and pass them forward.</p>
         </div>
         <div className="pillar-grid">
           {pillars.map(({ icon: Icon, title, description }, index) => (
@@ -261,8 +418,8 @@ export default function App() {
       </section>
 
       <footer className="footer">
-        <a className="footer-brand" href="/">SOOUL<span>®</span></a>
-        <span>© {new Date().getFullYear()} SOOUL. A legacy beyond generations.</span>
+        <a className="footer-brand" href="/">SOOULL<span>®</span></a>
+        <span>© {new Date().getFullYear()} SOOULL. A legacy beyond generations.</span>
         <span className="connection"><span className={isSupabaseConfigured ? 'status-dot online' : 'status-dot'} />{isSupabaseConfigured ? 'Secure connection configured' : 'Backend configuration pending'}</span>
       </footer>
       {authOpen && <AuthPanel initialMode={authMode} onClose={() => setAuthOpen(false)} onAuthenticated={(nextUser) => { setUser(nextUser); setAuthOpen(false) }} />}

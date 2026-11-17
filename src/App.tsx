@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
-  ArrowLeft, ArrowUpRight, BookHeart, Flower2, Infinity, LockKeyhole,
+  ArrowLeft, ArrowUpRight, BookHeart, Infinity, LockKeyhole,
   Mail, ShieldCheck, Sparkles, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -17,7 +17,17 @@ const pillars = [
 function BrandMark({ large = false }: { large?: boolean }) {
   return (
     <span className={large ? 'brand-art brand-art-large' : 'brand-art'} aria-hidden="true">
-      <Flower2 strokeWidth={1.15} />
+      <svg viewBox="0 0 200 200" role="presentation">
+        <path d="M100 154 C65 127 64 86 100 38 C136 86 135 127 100 154Z" fill="#d99b35" stroke="#ffe19a" strokeWidth="2.2" />
+        <path d="M91 153 C55 145 28 113 28 73 C67 79 91 111 100 154Z" fill="#0757b9" stroke="#63b8ff" strokeWidth="2.2" />
+        <path d="M109 153 C145 145 172 113 172 73 C133 79 109 111 100 154Z" fill="#0757b9" stroke="#63b8ff" strokeWidth="2.2" />
+        <path d="M100 155 C73 135 45 133 17 145 C45 177 74 177 100 155Z" fill="#d99b35" stroke="#ffe19a" strokeWidth="2.2" />
+        <path d="M100 155 C127 135 155 133 183 145 C155 177 126 177 100 155Z" fill="#d99b35" stroke="#ffe19a" strokeWidth="2.2" />
+        <path d="M38 111 C58 83 80 101 100 124 C120 147 142 163 162 133 C180 106 149 88 127 108 C111 123 88 148 72 137 C56 126 50 104 38 111Z" fill="none" stroke="#f2c66e" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M100 124 L100 181 M100 166 C82 152 69 157 61 170 M100 166 C118 152 131 157 139 170" fill="none" stroke="#dca64b" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="100" cy="89" r="10" fill="#fff0b5" stroke="#e9b95e" strokeWidth="3" />
+        <path d="M100 9V29 M94 19H106" stroke="#ffe29a" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
       <span className="brand-art-core" />
     </span>
   )

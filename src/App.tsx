@@ -257,7 +257,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   return (
     <main className="member-shell">
       <header className="topbar member-topbar">
-        <a className="brand" href="/"><BrandMark /><span>SOOULLL</span></a>
+        <a className="brand" href="/"><BrandMark /><span>SOOULL</span></a>
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
           <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
@@ -304,7 +304,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
             ))}</div>}
       </section>
 
-      <footer className="dashboard-footer"><span>SOOULLL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
+      <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
 
       {editorOpen && <div className="auth-screen story-editor-screen" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditorOpen(false) }}>
         <section className="auth-panel story-editor" role="dialog" aria-modal="true" aria-labelledby="story-editor-title">

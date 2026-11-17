@@ -6,7 +6,7 @@ const supabasePublishableKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY
 
 /**
- * Uses the existing SOOUL Supabase project when its public URL and
+ * Uses the existing SOOULL Supabase project when its public URL and
  * publishable/legacy anon key are configured. Never expose a secret or
  * service-role key in the browser.
  */

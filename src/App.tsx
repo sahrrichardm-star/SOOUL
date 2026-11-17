@@ -1,60 +1,79 @@
-import { ArrowUpRight, BookHeart, Flower2, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowUpRight, BookHeart, Flower2, ShieldCheck, Sparkles, Infinity } from 'lucide-react'
 import { isSupabaseConfigured } from './lib/supabase'
 
 const pillars = [
   {
     icon: BookHeart,
     title: 'Stories',
-    description: 'Capture the moments, lessons and experiences that make a life meaningful.',
+    description: 'Preserve the moments, memories and lessons that make your life uniquely yours.',
   },
   {
-    icon: Flower2,
+    icon: Infinity,
     title: 'Legacy',
-    description: 'Bring important wishes, values and personal records together in one place.',
+    description: 'Pass on the values, wishes and knowledge you want future generations to carry.',
   },
   {
     icon: ShieldCheck,
     title: 'Safekeeping',
-    description: 'Build on a secure foundation with clear control over your information.',
+    description: 'Keep what matters together, with privacy and control at the heart of the experience.',
   },
 ]
 
+function BrandMark({ large = false }: { large?: boolean }) {
+  return (
+    <span className={large ? 'brand-art brand-art-large' : 'brand-art'} aria-hidden="true">
+      <Flower2 strokeWidth={1.15} />
+      <span className="brand-art-core" />
+    </span>
+  )
+}
+
 export default function App() {
   return (
-    <main className="page-shell">
-      <nav className="topbar" aria-label="Main navigation">
+    <main className="site-shell">
+      <header className="topbar">
         <a className="brand" href="/" aria-label="SOOUL home">
-          <span className="brand-mark"><Flower2 size={22} strokeWidth={1.7} /></span>
+          <BrandMark />
           <span>SOOUL</span>
         </a>
-        <span className="topbar-note">A living legacy</span>
-      </nav>
+        <span className="topbar-note">Your life. Your legacy.</span>
+      </header>
 
-      <section className="hero">
-        <div className="eyebrow"><Sparkles size={15} /> YOUR STORY. YOUR LEGACY.</div>
-        <h1>Keep what matters.<br /><span>Pass on what lasts.</span></h1>
-        <p className="hero-copy">
-          A thoughtful home for your stories, memories, values and the things
-          you want future generations to know.
-        </p>
-        <a className="primary-link" href="#begin">
-          Explore SOOUL <ArrowUpRight size={17} />
-        </a>
-        <div className="hero-orbit orbit-one" />
-        <div className="hero-orbit orbit-two" />
-        <div className="hero-flower"><Flower2 size={150} strokeWidth={0.8} /></div>
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-copy-block">
+          <div className="eyebrow"><Sparkles size={15} /> A LEGACY THAT LIVES ON</div>
+          <h1 id="hero-title">Your life.<br /><span>Your legacy.</span></h1>
+          <p className="hero-copy">
+            A thoughtful place for the stories, memories, values and wishes
+            you want to preserve — and pass on beyond generations.
+          </p>
+          <a className="primary-link" href="#meaning">
+            Discover SOOUL <ArrowUpRight size={17} />
+          </a>
+        </div>
+        <div className="hero-artwork" aria-label="SOOUL flower and infinity emblem">
+          <div className="art-orbit art-orbit-outer" />
+          <div className="art-orbit art-orbit-inner" />
+          <div className="art-glow" />
+          <BrandMark large />
+          <div className="art-wordmark">SOOUL</div>
+          <div className="art-tagline">YOUR LIFE · YOUR LEGACY · BEYOND GENERATIONS</div>
+          <div className="art-rule"><span /></div>
+        </div>
+        <div className="hero-bottom-note">A living legacy, shaped by you.</div>
       </section>
 
-      <section className="pillars" id="begin" aria-labelledby="pillars-heading">
+      <section className="pillars" id="meaning" aria-labelledby="pillars-heading">
         <div className="section-heading">
           <span className="eyebrow">BUILT AROUND WHAT MATTERS</span>
-          <h2 id="pillars-heading">A legacy is more than a record.</h2>
-          <p>It is the knowledge, care and memories we choose to preserve.</p>
+          <h2 id="pillars-heading">Some things deserve to outlast us.</h2>
+          <p>SOOUL is being built to help you keep them close and pass them forward.</p>
         </div>
         <div className="pillar-grid">
-          {pillars.map(({ icon: Icon, title, description }) => (
+          {pillars.map(({ icon: Icon, title, description }, index) => (
             <article className="pillar-card" key={title}>
-              <span className="pillar-icon"><Icon size={22} /></span>
+              <span className="pillar-index">0{index + 1}</span>
+              <span className="pillar-icon"><Icon size={22} strokeWidth={1.7} /></span>
               <h3>{title}</h3>
               <p>{description}</p>
             </article>
@@ -63,10 +82,11 @@ export default function App() {
       </section>
 
       <footer className="footer">
-        <span>© {new Date().getFullYear()} SOOUL</span>
+        <a className="footer-brand" href="/">SOOUL<span>®</span></a>
+        <span>© {new Date().getFullYear()} SOOUL. A legacy beyond generations.</span>
         <span className="connection">
           <span className={isSupabaseConfigured ? 'status-dot online' : 'status-dot'} />
-          {isSupabaseConfigured ? 'Backend configuration detected' : 'Backend setup pending'}
+          {isSupabaseConfigured ? 'Secure connection configured' : 'Backend configuration pending'}
         </span>
       </footer>
     </main>

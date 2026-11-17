@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "SOOUL — Your life. Your legacy.",
-  "short_name": "SOOUL",
+  "name": "SOOULL — Your life. Your legacy.",
+  "short_name": "SOOULL",
   "description": "Preserve the stories, values, memories and wishes that matter.",
   "start_url": "/",
   "scope": "/",
@@ -10,7 +10,7 @@
   "theme_color": "#080b12",
   "icons": [
     {
-      "src": "/sooul-mark.svg",
+      "src": "/sooull-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

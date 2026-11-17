@@ -97,12 +97,9 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
         if (authError) throw authError
         setMessage('If an account exists for that email, a password reset link has been sent.')
       } else {
-        const { error: authError } = await supabase.auth.updateUser({ password })
+        const { data, error: authError } = await supabase.auth.updateUser({ password })
         if (authError) throw authError
-        setMessage('Your password has been updated. You can now sign in with your new password.')
-        setMode('signin')
-        setPassword('')
-        setConfirmPassword('')
+        if (data.user) onAuthenticated(data.user)
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Something went wrong. Please try again.')
@@ -128,11 +125,13 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label htmlFor="auth-email">Email address</label>
-          <div className="auth-input-wrap"><Mail size={17} /><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
+          {mode !== 'update-password' && <>
+            <label htmlFor="auth-email">Email address</label>
+            <div className="auth-input-wrap"><Mail size={17} /><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
+          </>}
           {mode !== 'reset' && <>
             <label htmlFor="auth-password">Password</label>
-            <div className="auth-input-wrap"><LockKeyhole size={17} /><input id="auth-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></div>
+            <div className="auth-input-wrap"><LockKeyhole size={17} /><input id="auth-password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></div>
           </>}
           {(mode === 'signup' || mode === 'update-password') && <>
             <label htmlFor="auth-confirm">Confirm password</label>
@@ -184,16 +183,20 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return
     let active = true
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) setUser(data.user)
-    })
+    let recoveringPassword = false
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return
-      setUser(session?.user ?? null)
       if (event === 'PASSWORD_RECOVERY') {
+        recoveringPassword = true
+        setUser(null)
         setAuthMode('update-password')
         setAuthOpen(true)
+        return
       }
+      setUser(session?.user ?? null)
+    })
+    supabase.auth.getUser().then(({ data }) => {
+      if (active && !recoveringPassword) setUser(data.user)
     })
     return () => {
       active = false

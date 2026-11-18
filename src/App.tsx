@@ -39,6 +39,11 @@ function BrandMark({ large = false }: { large?: boolean }) {
 function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClose: () => void; onAuthenticated: (user: User) => void; initialMode?: AuthMode }) {
   const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [middleName, setMiddleName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [address, setAddress] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -78,6 +83,16 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       setError('SOOULL authentication is not configured yet. The Supabase project URL and publishable key must be added to Vercel environment variables.')
       return
     }
+    if (mode === 'signup') {
+      if (!firstName.trim() || !lastName.trim() || !address.trim() || !dateOfBirth) {
+        setError('Enter your first name, last name, residential address and date of birth.')
+        return
+      }
+      if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
+        setError('Date of birth cannot be in the future.')
+        return
+      }
+    }
     if (mode !== 'reset' && password.length < 8) {
       setError('Use a password with at least 8 characters.')
       return
@@ -93,7 +108,17 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
         const { data, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: {
+              first_name: firstName.trim(),
+              middle_name: middleName.trim(),
+              last_name: lastName.trim(),
+              full_name: [firstName, middleName, lastName].map((part) => part.trim()).filter(Boolean).join(' '),
+              residential_address: address.trim(),
+              date_of_birth: dateOfBirth,
+            },
+          },
         })
         if (authError) throw authError
         if (data.session && data.user) {
@@ -153,6 +178,17 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
           <div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div>
         </div>}
         <form className="auth-form" onSubmit={handleSubmit}>
+          {mode === 'signup' && <>
+            <div className="auth-name-grid">
+              <div><label htmlFor="auth-first-name">First name</label><input className="story-field" id="auth-first-name" autoComplete="given-name" maxLength={80} required value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="First name" /></div>
+              <div><label htmlFor="auth-middle-name">Middle name <span className="optional-label">Optional</span></label><input className="story-field" id="auth-middle-name" autoComplete="additional-name" maxLength={80} value={middleName} onChange={(event) => setMiddleName(event.target.value)} placeholder="Middle name" /></div>
+              <div><label htmlFor="auth-last-name">Last name</label><input className="story-field" id="auth-last-name" autoComplete="family-name" maxLength={80} required value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Last name" /></div>
+            </div>
+            <label htmlFor="auth-address">Residential address</label>
+            <input className="story-field" id="auth-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="House number, street, town/city" />
+            <label htmlFor="auth-dob">Date of birth</label>
+            <input className="story-field" id="auth-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
+          </>}
           {mode !== 'update-password' && <>
             <label htmlFor="auth-email">Email address</label>
             <div className="auth-input-wrap"><Mail size={17} /><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div>
@@ -615,7 +651,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const visibleStories = stories.filter((story) =>
     `${story.title} ${story.content} ${story.category}`.toLowerCase().includes(search.toLowerCase()),
   )
-  const displayName = user.email?.split('@')[0] ?? 'Member'
+  const metadata = user.user_metadata ?? {}
+  const displayName = [metadata.first_name, metadata.middle_name, metadata.last_name].filter((part) => typeof part === 'string' && part.trim()).join(' ')
+    || (typeof metadata.full_name === 'string' ? metadata.full_name : '')
+    || user.email?.split('@')[0]
+    || 'Member'
 
   return (
     <main className="member-shell">

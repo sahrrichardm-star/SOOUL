@@ -243,14 +243,19 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     }
     setLoadingStories(true)
     setError('')
-    const { data, error: queryError } = await supabase
-      .from('stories')
-      .select('id,user_id,title,content,category,story_date,is_favorite,created_at,updated_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    if (queryError) setError(queryError.message)
-    else setStories((data ?? []) as Story[])
-    setLoadingStories(false)
+    try {
+      const { data, error: queryError } = await supabase
+        .from('stories')
+        .select('id,user_id,title,content,category,story_date,is_favorite,created_at,updated_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      if (queryError) throw queryError
+      setStories((data ?? []) as Story[])
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load your stories. Please try again.')
+    } finally {
+      setLoadingStories(false)
+    }
   }
 
   useEffect(() => { void loadStories() }, [])
@@ -280,41 +285,52 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     if (!supabase) return
     setSaving(true)
     setError('')
-    const values = {
-      title: title.trim(),
-      content: content.trim(),
-      category,
-      story_date: storyDate || null,
-    }
-    const result = editingStory
-      ? await supabase.from('stories').update(values).eq('id', editingStory.id).eq('user_id', user.id).select().single()
-      : await supabase.from('stories').insert({ ...values, user_id: user.id }).select().single()
-
-    if (result.error) {
-      setError(result.error.message)
-    } else {
+    try {
+      const values = {
+        title: title.trim(),
+        content: content.trim(),
+        category,
+        story_date: storyDate || null,
+      }
+      const result = editingStory
+        ? await supabase.from('stories').update(values).eq('id', editingStory.id).eq('user_id', user.id).select().single()
+        : await supabase.from('stories').insert({ ...values, user_id: user.id }).select().single()
+      if (result.error) throw result.error
       const saved = result.data as Story
       setStories((current) => editingStory
         ? current.map((story) => story.id === saved.id ? saved : story)
         : [saved, ...current])
       setEditorOpen(false)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save your story. Please try again.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function removeStory(story: Story) {
     if (!supabase || !window.confirm(`Delete “${story.title}”? This cannot be undone.`)) return
-    const { error: deleteError } = await supabase.from('stories').delete().eq('id', story.id).eq('user_id', user.id)
-    if (deleteError) setError(deleteError.message)
-    else setStories((current) => current.filter((item) => item.id !== story.id))
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('stories').delete().eq('id', story.id).eq('user_id', user.id)
+      if (deleteError) throw deleteError
+      setStories((current) => current.filter((item) => item.id !== story.id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete this story. Please try again.')
+    }
   }
 
   async function toggleFavorite(story: Story) {
     if (!supabase) return
     const nextValue = !story.is_favorite
-    const { error: updateError } = await supabase.from('stories').update({ is_favorite: nextValue }).eq('id', story.id).eq('user_id', user.id)
-    if (updateError) setError(updateError.message)
-    else setStories((current) => current.map((item) => item.id === story.id ? { ...item, is_favorite: nextValue } : item))
+    setError('')
+    try {
+      const { error: updateError } = await supabase.from('stories').update({ is_favorite: nextValue }).eq('id', story.id).eq('user_id', user.id)
+      if (updateError) throw updateError
+      setStories((current) => current.map((item) => item.id === story.id ? { ...item, is_favorite: nextValue } : item))
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update this favourite. Please try again.')
+    }
   }
 
   const visibleStories = stories.filter((story) =>

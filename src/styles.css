@@ -237,3 +237,14 @@ a { color: inherit; text-decoration: none; }
   .collection-heading { align-items: flex-start; flex-direction: column; }
   .collection-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Member data portability */
+.member-export-button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid rgba(233,185,94,.28); border-radius: 5px; color: #e6c78e; background: rgba(233,185,94,.055); font: inherit; font-size: 11px; cursor: pointer; }
+.member-export-button:hover:not(:disabled) { background: rgba(233,185,94,.12); }
+.member-export-button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 620px) {
+  .member-top-actions { gap: 8px; }
+  .member-email { display: none; }
+  .member-export-button { padding: 8px; font-size: 10px; }
+}

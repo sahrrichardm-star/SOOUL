@@ -403,3 +403,9 @@ body, .site-shell, .member-shell { color: #1f2937; background: #f7f7f4; }
 .story-search { color: #5f6875; }
 .footer { color: #596474; }
 @media (prefers-color-scheme: dark) { :root { color-scheme: light; } }
+
+/* Consistent dark typography across the light interface */
+body :is(h1,h2,h3,h4,p,span,strong,small,label,button,a,li,td,th,legend,summary,figcaption) { color: #1f2937; }
+body :is(input,textarea,select) { color: #17212e; background-color: #fff; }
+body :is(input,textarea,select)::placeholder { color: #707b89; opacity: 1; }
+body :is(input,textarea,select):focus { outline-color: #b88938; }

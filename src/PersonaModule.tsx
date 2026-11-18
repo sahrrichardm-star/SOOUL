@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 
 type Source = { id: string; title: string; source_type: 'story' | 'legacy_entry' }
 type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: { id: string; type: string; title: string }[] }
+type Conversation = { id: string; title: string; updated_at: string }
 
 export function PersonaModule({ userId }: { userId: string }) {
   const [name, setName] = useState('')
@@ -20,23 +21,26 @@ export function PersonaModule({ userId }: { userId: string }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatPrompt, setChatPrompt] = useState('')
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [chatBusy, setChatBusy] = useState(false)
 
   useEffect(() => {
     let active = true
     async function load() {
-      if (!supabase) return
+      if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return }
       setLoading(true)
       setError('')
       try {
-        const [profile, stories, legacy, approvals, consent] = await Promise.all([
+        const [profile, stories, legacy, approvals, consent, conversationList] = await Promise.all([
           supabase.from('persona_profiles').select('display_name,biography,response_style,is_enabled').eq('user_id', userId).maybeSingle(),
           supabase.from('stories').select('id,title').eq('user_id', userId).order('created_at', { ascending: false }),
           supabase.from('legacy_entries').select('id,title').eq('user_id', userId).order('created_at', { ascending: false }),
           supabase.from('persona_sources').select('source_type,source_id').eq('user_id', userId).eq('is_enabled', true),
           supabase.from('persona_consents').select('id').eq('user_id', userId).eq('consent_type', 'text_persona').is('revoked_at', null).limit(1),
+          supabase.from('persona_conversations').select('id,title,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }).limit(20),
         ])
-        const failed = profile.error || stories.error || legacy.error || approvals.error || consent.error
+        const failed = profile.error || stories.error || legacy.error || approvals.error || consent.error || conversationList.error
         if (failed) throw failed
         if (!active) return
         setName(profile.data?.display_name ?? '')
@@ -49,6 +53,7 @@ export function PersonaModule({ userId }: { userId: string }) {
         ])
         setSelected((approvals.data ?? []).map(item => item.source_id))
         setConsented((consent.data ?? []).length > 0)
+        setConversations((conversationList.data ?? []) as Conversation[])
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Could not load persona settings.')
       } finally {
@@ -133,6 +138,34 @@ export function PersonaModule({ userId }: { userId: string }) {
     }
   }
 
+  async function openConversation(id: string) {
+    if (!supabase || historyLoading) return
+    setHistoryLoading(true)
+    setError('')
+    try {
+      const { data, error: readError } = await supabase.from('persona_messages')
+        .select('role,content,source_refs').eq('user_id', userId).eq('conversation_id', id)
+        .order('created_at', { ascending: true }).limit(100)
+      if (readError) throw readError
+      setConversationId(id)
+      setChatMessages((data ?? []).map(item => ({
+        role: item.role as 'user' | 'assistant',
+        content: item.content,
+        sources: Array.isArray(item.source_refs) ? item.source_refs as ChatMessage['sources'] : [],
+      })))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load that conversation.')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  function startNewConversation() {
+    setConversationId(null)
+    setChatMessages([])
+    setError('')
+  }
+
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || !chatPrompt.trim() || chatBusy) return
@@ -146,6 +179,8 @@ export function PersonaModule({ userId }: { userId: string }) {
       if (invokeError) throw invokeError
       if (!data?.answer) throw new Error(data?.error || 'AI response is unavailable.')
       setConversationId(data.conversationId)
+      const { data: list } = await supabase.from('persona_conversations').select('id,title,updated_at').eq('user_id', userId).order('updated_at', { ascending: false }).limit(20)
+      if (list) setConversations(list as Conversation[])
       setChatMessages(current => [...current, { role: 'assistant', content: data.answer, sources: data.sources ?? [] }])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The AI conversation could not be completed.')
@@ -182,8 +217,9 @@ export function PersonaModule({ userId }: { userId: string }) {
     {enabled && <section className="persona-chat-panel">
       <h3>Talk with the AI legacy companion</h3>
       <p>Responses are AI-generated and based only on the entries you approved. The companion does not claim to be the real person.</p>
+      <div className="persona-chat-controls"><label>Saved conversations<select value={conversationId ?? ''} onChange={e => e.target.value ? void openConversation(e.target.value) : startNewConversation()}><option value="">New conversation</option>{conversations.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><button type="button" className="text-button" onClick={startNewConversation}>New chat</button></div>
       <div className="persona-chat-history" aria-live="polite">
-        {chatMessages.length === 0 ? <p>Your conversation will appear here once the AI model service is configured.</p> : chatMessages.map((item, index) => <article className={item.role === 'user' ? 'persona-chat-user' : 'persona-chat-assistant'} key={index}><strong>{item.role === 'user' ? 'You' : 'SOOULL AI'}</strong><p>{item.content}</p>{item.sources?.length ? <small>Sources: {item.sources.map(source => source.title).join(', ')}</small> : null}</article>)}
+        {historyLoading ? <p>Loading conversation…</p> : chatMessages.length === 0 ? <p>Your conversation will appear here once the AI model service is configured.</p> : chatMessages.map((item, index) => <article className={item.role === 'user' ? 'persona-chat-user' : 'persona-chat-assistant'} key={index}><strong>{item.role === 'user' ? 'You' : 'SOOULL AI'}</strong><p>{item.content}</p>{item.sources?.length ? <small>Sources: {item.sources.map(source => source.title).join(', ')}</small> : null}</article>)}
       </div>
       <form className="persona-chat-compose" onSubmit={sendMessage}><textarea value={chatPrompt} onChange={e => setChatPrompt(e.target.value)} rows={2} maxLength={4000} placeholder="Ask about the memories you approved…" /><button className="dashboard-primary" type="submit" disabled={chatBusy || !chatPrompt.trim()}>{chatBusy ? 'Thinking…' : 'Send'}</button></form>
     </section>}

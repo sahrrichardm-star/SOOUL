@@ -33,10 +33,16 @@ export function LegacyModule({ userId }: { userId: string }) {
   async function load() {
     if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return }
     setLoading(true)
-    const { data, error: queryError } = await supabase.from('legacy_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-    if (queryError) setError(queryError.message)
-    else setEntries((data ?? []) as LegacyEntry[])
-    setLoading(false)
+    setError('')
+    try {
+      const { data, error: queryError } = await supabase.from('legacy_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      if (queryError) throw queryError
+      setEntries((data ?? []) as LegacyEntry[])
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load your legacy entries. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { void load() }, [userId])
 
@@ -50,24 +56,32 @@ export function LegacyModule({ userId }: { userId: string }) {
     event.preventDefault()
     if (!supabase) return
     setSaving(true); setError('')
-    const values = { title: title.trim(), content: content.trim(), entry_type: entryType, recipient: recipient.trim() || null, is_featured: featured }
-    const result = editing
-      ? await supabase.from('legacy_entries').update(values).eq('id', editing.id).eq('user_id', userId).select().single()
-      : await supabase.from('legacy_entries').insert({ ...values, user_id: userId }).select().single()
-    if (result.error) setError(result.error.message)
-    else {
+    try {
+      const values = { title: title.trim(), content: content.trim(), entry_type: entryType, recipient: recipient.trim() || null, is_featured: featured }
+      const result = editing
+        ? await supabase.from('legacy_entries').update(values).eq('id', editing.id).eq('user_id', userId).select().single()
+        : await supabase.from('legacy_entries').insert({ ...values, user_id: userId }).select().single()
+      if (result.error) throw result.error
       const saved = result.data as LegacyEntry
       setEntries(current => editing ? current.map(item => item.id === saved.id ? saved : item) : [saved, ...current])
       setEditorOpen(false)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save this entry. Please try again.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function remove(entry: LegacyEntry) {
     if (!supabase || !window.confirm(`Delete “${entry.title}”? This cannot be undone.`)) return
-    const { error: deleteError } = await supabase.from('legacy_entries').delete().eq('id', entry.id).eq('user_id', userId)
-    if (deleteError) setError(deleteError.message)
-    else setEntries(current => current.filter(item => item.id !== entry.id))
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('legacy_entries').delete().eq('id', entry.id).eq('user_id', userId)
+      if (deleteError) throw deleteError
+      setEntries(current => current.filter(item => item.id !== entry.id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete this entry. Please try again.')
+    }
   }
 
   return (
@@ -121,10 +135,16 @@ export function SafekeepingModule({ userId }: { userId: string }) {
   async function load() {
     if (!supabase) { setError('Supabase is not configured.'); setLoading(false); return }
     setLoading(true)
-    const { data, error: queryError } = await supabase.from('safekeeping_records').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-    if (queryError) setError(queryError.message)
-    else setRecords((data ?? []) as SafeRecord[])
-    setLoading(false)
+    setError('')
+    try {
+      const { data, error: queryError } = await supabase.from('safekeeping_records').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      if (queryError) throw queryError
+      setRecords((data ?? []) as SafeRecord[])
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load your records. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
   useEffect(() => { void load() }, [userId])
 
@@ -138,24 +158,32 @@ export function SafekeepingModule({ userId }: { userId: string }) {
     event.preventDefault()
     if (!supabase) return
     setSaving(true); setError('')
-    const values = { title: title.trim(), record_type: recordType, institution: institution.trim() || null, notes: notes.trim(), review_date: reviewDate || null }
-    const result = editing
-      ? await supabase.from('safekeeping_records').update(values).eq('id', editing.id).eq('user_id', userId).select().single()
-      : await supabase.from('safekeeping_records').insert({ ...values, user_id: userId }).select().single()
-    if (result.error) setError(result.error.message)
-    else {
+    try {
+      const values = { title: title.trim(), record_type: recordType, institution: institution.trim() || null, notes: notes.trim(), review_date: reviewDate || null }
+      const result = editing
+        ? await supabase.from('safekeeping_records').update(values).eq('id', editing.id).eq('user_id', userId).select().single()
+        : await supabase.from('safekeeping_records').insert({ ...values, user_id: userId }).select().single()
+      if (result.error) throw result.error
       const saved = result.data as SafeRecord
       setRecords(current => editing ? current.map(item => item.id === saved.id ? saved : item) : [saved, ...current])
       setEditorOpen(false)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save this record. Please try again.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function remove(record: SafeRecord) {
     if (!supabase || !window.confirm(`Delete “${record.title}”? This cannot be undone.`)) return
-    const { error: deleteError } = await supabase.from('safekeeping_records').delete().eq('id', record.id).eq('user_id', userId)
-    if (deleteError) setError(deleteError.message)
-    else setRecords(current => current.filter(item => item.id !== record.id))
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('safekeeping_records').delete().eq('id', record.id).eq('user_id', userId)
+      if (deleteError) throw deleteError
+      setRecords(current => current.filter(item => item.id !== record.id))
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete this record. Please try again.')
+    }
   }
 
   return (

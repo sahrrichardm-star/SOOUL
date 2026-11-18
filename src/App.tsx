@@ -645,22 +645,27 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     setExporting(true)
     setError('')
     try {
-      const [storyResult, legacyResult, safeResult] = await Promise.all([
+      const [storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult] = await Promise.all([
         supabase.from('stories').select('id,title,content,category,story_date,is_favorite,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('legacy_entries').select('id,title,content,entry_type,recipient,is_featured,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('assets').select('id,title,asset_type,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,date_of_birth,created_at,updated_at').eq('id', user.id).maybeSingle(),
       ])
-      const failed = storyResult.error || legacyResult.error || safeResult.error
+      const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error || walletResult.error || profileResult.error
       if (failed) throw failed
       const backup = {
         application: 'SOOULL',
         format_version: 1,
         exported_at: new Date().toISOString(),
-        account: { email: user.email ?? null },
+        account: { email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
           stories: storyResult.data ?? [],
           legacy: legacyResult.data ?? [],
           safekeeping: safeResult.data ?? [],
+          assets: assetResult.data ?? [],
+          wallet: walletResult.data ?? [],
         },
       }
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' })

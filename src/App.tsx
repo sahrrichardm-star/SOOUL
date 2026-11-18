@@ -44,6 +44,8 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')
   const [address, setAddress] = useState('')
+  const [country, setCountry] = useState('')
+  const [phone, setPhone] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -85,8 +87,13 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       return
     }
     if (mode === 'signup') {
-      if (!firstName.trim() || !lastName.trim() || !address.trim() || !dateOfBirth) {
-        setError('Enter your first name, last name, residential address and date of birth.')
+      const normalizedPhone = phone.replace(/[\\s().-]/g, '')
+      if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth) {
+        setError('Enter your first name, last name, residential address, country, phone number and date of birth.')
+        return
+      }
+      if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) {
+        setError('Enter your phone number in international format, including + and country calling code (for example, +232...).')
         return
       }
       if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
@@ -117,6 +124,8 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
               last_name: lastName.trim(),
               full_name: [firstName, middleName, lastName].map((part) => part.trim()).filter(Boolean).join(' '),
               residential_address: address.trim(),
+              country: country.trim(),
+              phone: phone.replace(/[\\s().-]/g, ''),
               date_of_birth: dateOfBirth,
             },
           },
@@ -187,6 +196,10 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
             </div>
             <label htmlFor="auth-address">Residential address</label>
             <input className="story-field" id="auth-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="House number, street, town/city" />
+            <label htmlFor="auth-country">Country</label>
+            <input className="story-field" id="auth-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
+            <label htmlFor="auth-phone">Phone number</label>
+            <input className="story-field" id="auth-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" />
             <label htmlFor="auth-dob">Date of birth</label>
             <input className="story-field" id="auth-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
           </>}
@@ -224,6 +237,8 @@ function ProfileSettings({ user }: { user: User }) {
   const [middleName, setMiddleName] = useState(String(metadata.middle_name ?? ''))
   const [lastName, setLastName] = useState(String(metadata.last_name ?? ''))
   const [address, setAddress] = useState(String(metadata.residential_address ?? ''))
+  const [country, setCountry] = useState(String(metadata.country ?? ''))
+  const [phone, setPhone] = useState(String(metadata.phone ?? ''))
   const [dateOfBirth, setDateOfBirth] = useState(String(metadata.date_of_birth ?? ''))
   const [avatarPath, setAvatarPath] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -238,13 +253,15 @@ function ProfileSettings({ user }: { user: User }) {
     async function loadProfile() {
       if (!supabase) { setLoading(false); return }
       try {
-        const { data, error: profileError } = await supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,date_of_birth,avatar_path').eq('id', user.id).maybeSingle()
+        const { data, error: profileError } = await supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,avatar_path').eq('id', user.id).maybeSingle()
         if (profileError) throw profileError
         if (!active || !data) return
         setFirstName(data.first_name || '')
         setMiddleName(data.middle_name || '')
         setLastName(data.last_name || '')
         setAddress(data.residential_address || '')
+        setCountry(data.country || '')
+        setPhone(data.phone || '')
         setDateOfBirth(data.date_of_birth || '')
         setAvatarPath(data.avatar_path || '')
         if (data.avatar_path) {
@@ -263,8 +280,13 @@ function ProfileSettings({ user }: { user: User }) {
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    if (!firstName.trim() || !lastName.trim() || !address.trim() || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
-      setError('Enter a valid first name, last name, residential address and date of birth.')
+    const normalizedPhone = phone.replace(/[\\s().-]/g, '')
+    if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
+      setError('Enter a valid name, address, country, phone number and date of birth.')
+      return
+    }
+    if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) {
+      setError('Enter your phone number in international format, including + and country calling code.')
       return
     }
     setSaving(true); setError(''); setMessage('')
@@ -275,6 +297,8 @@ function ProfileSettings({ user }: { user: User }) {
         middle_name: middleName.trim(),
         last_name: lastName.trim(),
         residential_address: address.trim(),
+        country: country.trim(),
+        phone: normalizedPhone,
         date_of_birth: dateOfBirth,
         avatar_path: avatarPath || null,
         updated_at: new Date().toISOString(),
@@ -287,6 +311,8 @@ function ProfileSettings({ user }: { user: User }) {
         last_name: profile.last_name,
         full_name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' '),
         residential_address: profile.residential_address,
+        country: profile.country,
+        phone: profile.phone,
         date_of_birth: profile.date_of_birth,
       } })
       if (metadataError) throw metadataError
@@ -336,8 +362,10 @@ function ProfileSettings({ user }: { user: User }) {
       <label>Middle name <span className="optional-label">Optional</span><input className="story-field" maxLength={80} value={middleName} onChange={(event) => setMiddleName(event.target.value)} /></label>
       <label>Last name<input className="story-field" maxLength={80} required value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
       <label>Residential address<input className="story-field" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} /></label>
+      <label>Country<input className="story-field" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" /></label>
+      <label>Phone number<input className="story-field" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" /></label>
       <label>Date of birth<input className="story-field" type="date" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
-      <p className="account-settings-note">Your date of birth and address are private account details. Only your authenticated account can access this profile.</p>
+      <p className="account-settings-note">Your date of birth, address, country and phone number are private account details. Only your authenticated account can access this profile.</p>
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}
       {message && <p className="form-feedback form-success" role="status">{message}</p>}
       <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save personal profile'}</button>

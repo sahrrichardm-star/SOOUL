@@ -294,3 +294,35 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 520px) {
   .auth-name-grid { grid-template-columns: 1fr; }
 }
+
+/* Private assets and wallet vault */
+.vault-section { display: flex; flex-direction: column; gap: 20px; }
+.vault-lock { display: inline-flex; align-items: center; gap: 7px; color: #46765e; font-size: 13px; }
+.vault-tabs { margin-top: -4px; }
+.vault-upload-panel, .vault-recording-panel { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px; border: 1px solid var(--line, #e5e1d8); border-radius: 14px; background: var(--surface, #fff); }
+.vault-upload-panel h3 { margin: 0 0 6px; }
+.vault-upload-panel p, .vault-recording-panel p { margin: 0; color: var(--muted, #777); font-size: 14px; }
+.vault-upload-label { position: relative; overflow: hidden; white-space: nowrap; cursor: pointer; }
+.vault-upload-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.vault-recording-panel > div { display: flex; align-items: center; gap: 12px; }
+.vault-recording-panel strong { display: block; margin-bottom: 4px; }
+.vault-stop-button { border: 1px solid #b54c45; color: #a53c36; background: transparent; border-radius: 9px; padding: 11px 15px; cursor: pointer; }
+.vault-asset-grid, .vault-wallet-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.vault-asset-card, .vault-wallet-card { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--line, #e5e1d8); border-radius: 12px; background: var(--surface, #fff); min-width: 0; }
+.vault-asset-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 10px; background: rgba(35, 91, 145, .08); color: #235b91; }
+.vault-asset-info { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.vault-asset-info strong { overflow-wrap: anywhere; }
+.vault-asset-info span { color: var(--muted, #777); font-size: 12px; }
+.vault-asset-actions { display: flex; gap: 5px; }
+.vault-asset-actions button, .vault-wallet-card > button { display: grid; place-items: center; border: 0; background: transparent; color: var(--muted, #777); padding: 7px; cursor: pointer; }
+.vault-wallet-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 20px; border: 1px solid var(--line, #e5e1d8); border-radius: 14px; background: var(--surface, #fff); }
+.vault-wallet-form label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; }
+.vault-wallet-form label:nth-last-of-type(1), .vault-wallet-form .account-settings-note, .vault-wallet-form .auth-submit { grid-column: 1 / -1; }
+.vault-wallet-card { align-items: flex-start; justify-content: space-between; }
+.vault-wallet-card h3 { margin: 9px 0 5px; }
+.vault-wallet-card p { margin: 5px 0; color: var(--muted, #777); font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 620px) {
+  .vault-upload-panel, .vault-recording-panel { align-items: flex-start; flex-direction: column; }
+  .vault-wallet-form { grid-template-columns: 1fr; }
+  .vault-wallet-form label, .vault-wallet-form .account-settings-note, .vault-wallet-form .auth-submit { grid-column: 1; }
+}

@@ -208,8 +208,9 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
             <input className="story-field" id="auth-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="House number, street, town/city" />
             <label htmlFor="auth-country">Country</label>
             <input className="story-field" id="auth-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
-            <label htmlFor="auth-phone">Phone number</label>
-            <input className="story-field" id="auth-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" />
+            <label htmlFor="auth-phone">Phone number (international format)</label>
+            <input className="story-field" id="auth-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="auth-phone-help" />
+            <p className="account-settings-note" id="auth-phone-help">Start with +, then your country calling code and full number. Examples: +232 (Sierra Leone), +1 (US/Canada), +44 (UK). Use the worldwide international format, not a local area code.</p>
             <label htmlFor="auth-dob">Date of birth</label>
             <input className="story-field" id="auth-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
           </>}

@@ -786,12 +786,19 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
 
 type ZipEntry = { name: string; bytes: Uint8Array }
 
+const ZIP_CRC_TABLE = (() => {
+  const table = new Uint32Array(256)
+  for (let index = 0; index < 256; index += 1) {
+    let value = index
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0)
+    table[index] = value >>> 0
+  }
+  return table
+})()
+
 function zipCrc32(bytes: Uint8Array) {
   let crc = 0xffffffff
-  for (const byte of bytes) {
-    crc ^= byte
-    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0)
-  }
+  for (const byte of bytes) crc = ZIP_CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
   return (crc ^ 0xffffffff) >>> 0
 }
 

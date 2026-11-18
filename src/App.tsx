@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,

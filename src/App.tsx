@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
-  ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Heart, Infinity, LockKeyhole,
+  ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
   Mail, Pencil, Plus, Search, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -185,6 +185,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const [stories, setStories] = useState<Story[]>([])
   const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -194,6 +195,45 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const [content, setContent] = useState('')
   const [category, setCategory] = useState<StoryCategory>('life')
   const [storyDate, setStoryDate] = useState('')
+
+  async function exportMyData() {
+    if (!supabase || exporting) return
+    setExporting(true)
+    setError('')
+    try {
+      const [storyResult, legacyResult, safeResult] = await Promise.all([
+        supabase.from('stories').select('id,title,content,category,story_date,is_favorite,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('legacy_entries').select('id,title,content,entry_type,recipient,is_featured,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+      ])
+      const failed = storyResult.error || legacyResult.error || safeResult.error
+      if (failed) throw failed
+      const backup = {
+        application: 'SOOULL',
+        format_version: 1,
+        exported_at: new Date().toISOString(),
+        account: { email: user.email ?? null },
+        collections: {
+          stories: storyResult.data ?? [],
+          legacy: legacyResult.data ?? [],
+          safekeeping: safeResult.data ?? [],
+        },
+      }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `sooull-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Your backup could not be created. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function loadStories() {
     if (!supabase) {
@@ -287,6 +327,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <a className="brand" href="/"><BrandMark /><span>SOOULL</span></a>
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
+          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting} title="Download a backup of all your SOOULL entries"><Download size={15} /> {exporting ? 'Preparing…' : 'Export data'}</button>
           <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
         </div>
       </header>
@@ -300,6 +341,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button className="dashboard-primary" type="button" onClick={openNewStory}><Plus size={17} /> Write a story</button>
       </section>
 
+      {error && activeSection !== 'stories' && <p className="form-feedback form-error" role="alert">{error}</p>}
       <nav className="member-nav" aria-label="Your SOOULL collections">
         <button type="button" className={activeSection === 'stories' ? 'active' : ''} onClick={() => setActiveSection('stories')}><BookOpen size={16} /> Stories</button>
         <button type="button" className={activeSection === 'legacy' ? 'active' : ''} onClick={() => setActiveSection('legacy')}><Infinity size={16} /> Legacy</button>

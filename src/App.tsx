@@ -191,6 +191,9 @@ function AccountSettings({ user }: { user: User }) {
   const [passwordMessage, setPasswordMessage] = useState('')
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   async function updateEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -272,6 +275,35 @@ function AccountSettings({ user }: { user: User }) {
           <p className="account-settings-note">If your security settings require recent authentication, sign out and sign in again before retrying.</p>
         </form>
       </div>
+      <section className="account-danger-zone">
+        <div><span className="eyebrow">PERMANENT ACTION</span><h3>Delete your SOOULL account</h3><p>This permanently removes your account and its associated stories, legacy entries and safekeeping records. This cannot be undone. Export your data first if you want to keep a copy.</p></div>
+        <label htmlFor="delete-account-confirmation">Type DELETE to confirm</label>
+        <input className="story-field" id="delete-account-confirmation" value={deleteConfirmation} onChange={(event) => { setDeleteConfirmation(event.target.value); setDeleteError('') }} autoComplete="off" />
+        {deleteError && <p className="form-feedback form-error" role="alert">{deleteError}</p>}
+        <button className="account-delete-button" type="button" disabled={deleteLoading || deleteConfirmation !== 'DELETE'} onClick={async () => {
+          if (!supabase || deleteLoading || deleteConfirmation !== 'DELETE') return
+          const confirmed = window.confirm('Permanently delete your SOOULL account and all associated data? This cannot be undone.')
+          if (!confirmed) return
+          setDeleteLoading(true)
+          setDeleteError('')
+          try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            if (sessionError) throw sessionError
+            if (!session) throw new Error('Your session has expired. Sign in again.')
+            const { data, error: functionError } = await supabase.functions.invoke('delete-account', {
+              body: { confirmation: 'DELETE' },
+            })
+            if (functionError) throw functionError
+            if (data?.error) throw new Error(data.error)
+            await supabase.auth.signOut()
+            window.location.assign('/')
+          } catch (caught) {
+            setDeleteError(caught instanceof Error ? caught.message : 'Account deletion failed. Please try again.')
+            setDeleteLoading(false)
+          }
+        }}>{deleteLoading ? 'Deleting account…' : 'Permanently delete account'}</button>
+        <p className="account-settings-note">For security, deletion requires a session refreshed by signing in within the last 10 minutes. Your data is not deleted if this check fails.</p>
+      </section>
     </section>
   )
 }

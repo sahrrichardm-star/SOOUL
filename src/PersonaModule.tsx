@@ -3,6 +3,7 @@ import { BrainCircuit, CheckCircle2, LockKeyhole, Save } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
 type Source = { id: string; title: string; source_type: 'story' | 'legacy_entry' }
+type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: { id: string; type: string; title: string }[] }
 
 export function PersonaModule({ userId }: { userId: string }) {
   const [name, setName] = useState('')
@@ -16,6 +17,10 @@ export function PersonaModule({ userId }: { userId: string }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatPrompt, setChatPrompt] = useState('')
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [chatBusy, setChatBusy] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -128,6 +133,27 @@ export function PersonaModule({ userId }: { userId: string }) {
     }
   }
 
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || !chatPrompt.trim() || chatBusy) return
+    const prompt = chatPrompt.trim()
+    setChatPrompt('')
+    setChatBusy(true)
+    setError('')
+    setChatMessages(current => [...current, { role: 'user', content: prompt }])
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('persona-chat', { body: { prompt, conversationId } })
+      if (invokeError) throw invokeError
+      if (!data?.answer) throw new Error(data?.error || 'AI response is unavailable.')
+      setConversationId(data.conversationId)
+      setChatMessages(current => [...current, { role: 'assistant', content: data.answer, sources: data.sources ?? [] }])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The AI conversation could not be completed.')
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
   if (loading) return <section className="stories-empty"><span className="loading-ring" />Loading AI legacy settings…</section>
 
   return <section className="stories-section">
@@ -152,6 +178,14 @@ export function PersonaModule({ userId }: { userId: string }) {
       <label className="vault-check-row"><input type="checkbox" checked={consented} onChange={e => setConsented(e.target.checked)} /><span><strong>I consent to text-based AI processing</strong><small>I understand only selected entries may be processed to generate AI responses. I can revoke this consent at any time. This consent does not cover voice or likeness generation.</small></span></label>
       <button className="dashboard-primary" type="submit" disabled={saving || sources.length === 0 || !consented}><Save size={16} />{saving ? 'Saving…' : 'Save persona settings'}</button>
     </form>
-    {enabled && <div className="vault-security-note"><CheckCircle2 size={17} /><span>Persona profile is configured. Model conversations are not yet active.</span><button type="button" className="text-button" onClick={() => void revoke()} disabled={saving}>Revoke consent and disable</button></div>}
+    {enabled && <div className="vault-security-note"><CheckCircle2 size={17} /><span>Persona profile is configured. AI chat requires the secure model service credentials to be configured.</span><button type="button" className="text-button" onClick={() => void revoke()} disabled={saving}>Revoke consent and disable</button></div>}
+    {enabled && <section className="persona-chat-panel">
+      <h3>Talk with the AI legacy companion</h3>
+      <p>Responses are AI-generated and based only on the entries you approved. The companion does not claim to be the real person.</p>
+      <div className="persona-chat-history" aria-live="polite">
+        {chatMessages.length === 0 ? <p>Your conversation will appear here once the AI model service is configured.</p> : chatMessages.map((item, index) => <article className={item.role === 'user' ? 'persona-chat-user' : 'persona-chat-assistant'} key={index}><strong>{item.role === 'user' ? 'You' : 'SOOULL AI'}</strong><p>{item.content}</p>{item.sources?.length ? <small>Sources: {item.sources.map(source => source.title).join(', ')}</small> : null}</article>)}
+      </div>
+      <form className="persona-chat-compose" onSubmit={sendMessage}><textarea value={chatPrompt} onChange={e => setChatPrompt(e.target.value)} rows={2} maxLength={4000} placeholder="Ask about the memories you approved…" /><button className="dashboard-primary" type="submit" disabled={chatBusy || !chatPrompt.trim()}>{chatBusy ? 'Thinking…' : 'Send'}</button></form>
+    </section>}
   </section>
 }

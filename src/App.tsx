@@ -194,7 +194,7 @@ function AccountSettings({ user }: { user: User }) {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
-  const [mfaFactors, setMfaFactors] = useState<Array<{ id: string; friendly_name: string | null; status: string }>>([])
+  const [mfaFactors, setMfaFactors] = useState<Array<{ id: string; friendly_name?: string; status: string }>>([])
   const [mfaLoading, setMfaLoading] = useState(true)
   const [mfaBusy, setMfaBusy] = useState(false)
   const [mfaError, setMfaError] = useState('')

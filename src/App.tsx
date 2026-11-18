@@ -17,7 +17,7 @@ function normalizeInternationalPhone(value: string) {
 }
 
 function isValidInternationalPhone(value: string) {
-  return /^\\+[1-9]\\d{7,14}$/.test(value)
+  return /^\+[1-9]\d{7,14}$/.test(value)
 }
 
 type Story = { id: string; user_id: string; title: string; content: string; category: StoryCategory; story_date: string | null; is_favorite: boolean; created_at: string; updated_at: string }
@@ -97,12 +97,12 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       return
     }
     if (mode === 'signup') {
-      const normalizedPhone = phone.replace(/[\s().-]/g, '')
+      const normalizedPhone = normalizeInternationalPhone(phone)
       if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth) {
         setError('Enter your first name, last name, residential address, country, phone number and date of birth.')
         return
       }
-      if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      if (!isValidInternationalPhone(normalizedPhone)) {
         setError('Enter your phone number in international format, including + and country calling code (for example, +232...).')
         return
       }
@@ -285,12 +285,12 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
   async function complete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    const normalizedPhone = phone.replace(/[\s().-]/g, '')
+    const normalizedPhone = normalizeInternationalPhone(phone)
     if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth) {
       setError('Complete every required field before continuing.')
       return
     }
-    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+    if (!isValidInternationalPhone(normalizedPhone)) {
       setError('Enter your phone number in international format, including + and country calling code.')
       return
     }
@@ -394,12 +394,12 @@ function ProfileSettings({ user }: { user: User }) {
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    const normalizedPhone = phone.replace(/[\s().-]/g, '')
+    const normalizedPhone = normalizeInternationalPhone(phone)
     if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
       setError('Enter a valid name, address, country, phone number and date of birth.')
       return
     }
-    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+    if (!isValidInternationalPhone(normalizedPhone)) {
       setError('Enter your phone number in international format, including + and country calling code.')
       return
     }

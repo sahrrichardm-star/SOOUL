@@ -17,6 +17,12 @@ Deno.serve(async (req:Request) => {
     const uid=auth.user.id, body=await req.json(), prompt=typeof body.prompt==="string"?body.prompt.trim():"";
     let conversationId=typeof body.conversationId==="string"?body.conversationId:null;
     if(!prompt||prompt.length>4000) return json(400,{error:"Enter a message of up to 4,000 characters."});
+    const {data:withinQuota,error:quotaError}=await db.rpc("consume_persona_chat_quota");
+    if(quotaError) {
+      console.error("persona-chat quota check failed",quotaError);
+      return json(503,{error:"AI request protection is temporarily unavailable. Please try again shortly."});
+    }
+    if(withinQuota!==true) return new Response(JSON.stringify({error:"AI usage limit reached. You can send up to 10 messages every 5 minutes and 100 messages per day."}),{status:429,headers:{...cors,"Content-Type":"application/json","Retry-After":"300"}});
     const [p,c,s]=await Promise.all([
       db.from("persona_profiles").select("display_name,biography,response_style,is_enabled").eq("user_id",uid).maybeSingle(),
       db.from("persona_consents").select("id").eq("user_id",uid).eq("consent_type","text_persona").is("revoked_at",null).limit(1),

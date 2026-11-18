@@ -846,6 +846,7 @@ function createZipArchive(files: ZipEntry[]) {
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
+  const [profileName, setProfileName] = useState('')
   const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'trusted' | 'account'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -983,6 +984,26 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
   useEffect(() => { void loadStories() }, [])
 
+  useEffect(() => {
+    let active = true
+    async function loadProfileName() {
+      if (!supabase) return
+      const { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('first_name,middle_name,last_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!active || profileError || !data) return
+      const name = [data.first_name, data.middle_name, data.last_name]
+        .filter((part): part is string => typeof part === 'string' && Boolean(part.trim()))
+        .map(part => part.trim())
+        .join(' ')
+      if (name) setProfileName(name)
+    }
+    void loadProfileName()
+    return () => { active = false }
+  }, [user.id])
+
   function openNewStory() {
     setEditingStory(null)
     setTitle('')
@@ -1060,7 +1081,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     `${story.title} ${story.content} ${story.category}`.toLowerCase().includes(search.toLowerCase()),
   )
   const metadata = user.user_metadata ?? {}
-  const displayName = [metadata.first_name, metadata.middle_name, metadata.last_name].filter((part) => typeof part === 'string' && part.trim()).join(' ')
+  const displayName = profileName
+    || [metadata.first_name, metadata.middle_name, metadata.last_name].filter((part) => typeof part === 'string' && part.trim()).join(' ')
     || (typeof metadata.full_name === 'string' ? metadata.full_name : '')
     || 'Member'
 

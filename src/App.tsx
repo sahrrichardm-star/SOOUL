@@ -218,6 +218,133 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
   )
 }
 
+function ProfileSettings({ user }: { user: User }) {
+  const metadata = user.user_metadata ?? {}
+  const [firstName, setFirstName] = useState(String(metadata.first_name ?? ''))
+  const [middleName, setMiddleName] = useState(String(metadata.middle_name ?? ''))
+  const [lastName, setLastName] = useState(String(metadata.last_name ?? ''))
+  const [address, setAddress] = useState(String(metadata.residential_address ?? ''))
+  const [dateOfBirth, setDateOfBirth] = useState(String(metadata.date_of_birth ?? ''))
+  const [avatarPath, setAvatarPath] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const initials = [firstName, lastName].map((part) => part.trim().charAt(0)).filter(Boolean).join('').toUpperCase() || 'S'
+
+  useEffect(() => {
+    let active = true
+    async function loadProfile() {
+      if (!supabase) { setLoading(false); return }
+      try {
+        const { data, error: profileError } = await supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,date_of_birth,avatar_path').eq('id', user.id).maybeSingle()
+        if (profileError) throw profileError
+        if (!active || !data) return
+        setFirstName(data.first_name || '')
+        setMiddleName(data.middle_name || '')
+        setLastName(data.last_name || '')
+        setAddress(data.residential_address || '')
+        setDateOfBirth(data.date_of_birth || '')
+        setAvatarPath(data.avatar_path || '')
+        if (data.avatar_path) {
+          const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(data.avatar_path, 3600)
+          if (signedError) throw signedError
+          if (active) setAvatarUrl(signed.signedUrl)
+        }
+      } catch (caught) {
+        if (active) setError(caught instanceof Error ? caught.message : 'Unable to load your profile.')
+      } finally { if (active) setLoading(false) }
+    }
+    void loadProfile()
+    return () => { active = false }
+  }, [user.id])
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || saving) return
+    if (!firstName.trim() || !lastName.trim() || !address.trim() || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
+      setError('Enter a valid first name, last name, residential address and date of birth.')
+      return
+    }
+    setSaving(true); setError(''); setMessage('')
+    try {
+      const profile = {
+        id: user.id,
+        first_name: firstName.trim(),
+        middle_name: middleName.trim(),
+        last_name: lastName.trim(),
+        residential_address: address.trim(),
+        date_of_birth: dateOfBirth,
+        avatar_path: avatarPath || null,
+        updated_at: new Date().toISOString(),
+      }
+      const { error: saveError } = await supabase.from('profiles').upsert(profile)
+      if (saveError) throw saveError
+      const { error: metadataError } = await supabase.auth.updateUser({ data: {
+        first_name: profile.first_name,
+        middle_name: profile.middle_name,
+        last_name: profile.last_name,
+        full_name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' '),
+        residential_address: profile.residential_address,
+        date_of_birth: profile.date_of_birth,
+      } })
+      if (metadataError) throw metadataError
+      setMessage('Your personal details have been updated.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to save your profile.')
+    } finally { setSaving(false) }
+  }
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !supabase) return
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError('Choose a JPG, PNG or WebP image up to 10 MB.')
+      return
+    }
+    setError(''); setMessage('')
+    try {
+      const path = user.id + '/avatar/' + crypto.randomUUID() + '.' + (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
+      const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: file.type, upsert: false })
+      if (uploadError) throw uploadError
+      const { error: updateError } = await supabase.from('profiles').upsert({ id: user.id, avatar_path: uploaded.path, updated_at: new Date().toISOString() })
+      if (updateError) {
+        await supabase.storage.from('private-assets').remove([uploaded.path])
+        throw updateError
+      }
+      if (avatarPath) await supabase.storage.from('private-assets').remove([avatarPath])
+      const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(uploaded.path, 3600)
+      if (signedError) throw signedError
+      setAvatarPath(uploaded.path)
+      setAvatarUrl(signed.signedUrl)
+      setMessage('Profile photo updated.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to upload your profile photo.')
+    }
+  }
+
+  return <section className="account-profile-card">
+    <div className="collection-heading"><div><span className="eyebrow">YOUR IDENTITY</span><h2>Personal profile</h2><p>Keep your name and personal details accurate. Your profile photo is stored privately.</p></div></div>
+    <div className="profile-avatar-row">
+      {avatarUrl ? <img className="profile-avatar" src={avatarUrl} alt="Your profile" /> : <div className="profile-avatar profile-avatar-initials" aria-label="Profile initials">{initials}</div>}
+      <label className="account-secondary-button profile-avatar-upload">Change photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadAvatar(event)} /></label>
+    </div>
+    {loading ? <p className="account-settings-note">Loading personal details…</p> : <form className="vault-wallet-form profile-form" onSubmit={saveProfile}>
+      <label>First name<input className="story-field" maxLength={80} required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
+      <label>Middle name <span className="optional-label">Optional</span><input className="story-field" maxLength={80} value={middleName} onChange={(event) => setMiddleName(event.target.value)} /></label>
+      <label>Last name<input className="story-field" maxLength={80} required value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
+      <label>Residential address<input className="story-field" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} /></label>
+      <label>Date of birth<input className="story-field" type="date" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
+      <p className="account-settings-note">Your date of birth and address are private account details. Only your authenticated account can access this profile.</p>
+      {error && <p className="form-feedback form-error" role="alert">{error}</p>}
+      {message && <p className="form-feedback form-success" role="status">{message}</p>}
+      <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save personal profile'}</button>
+    </form>}
+  </section>
+}
+
 function AccountSettings({ user }: { user: User }) {
   const [email, setEmail] = useState(user.email ?? '')
   const [newPassword, setNewPassword] = useState('')
@@ -352,6 +479,7 @@ function AccountSettings({ user }: { user: User }) {
 
   return (
     <section className="collection-section account-settings">
+      <ProfileSettings user={user} />
       <div className="collection-heading">
         <div><span className="eyebrow">MEMBER PROFILE</span><h2>Account settings</h2><p>Manage the email address and password used to access your SOOULL account.</p></div>
       </div>

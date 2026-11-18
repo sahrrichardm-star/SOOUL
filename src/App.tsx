@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ChangeEvent, type FormEvent }
 import type { User } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
-  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, X,
+  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Users, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.LegacyModule })))

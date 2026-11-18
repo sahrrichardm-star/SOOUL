@@ -3,7 +3,7 @@ import { FileText, Image, Mic, Play, ShieldCheck, Trash2, Upload, Wallet, Video 
 import { supabase } from './lib/supabase'
 
 type Asset = { id: string; title: string; asset_type: string; storage_path: string; mime_type: string; file_size_bytes: number; created_at: string }
-type WalletRecord = { id: string; title: string; record_type: string; institution: string; account_label: string; account_last_four: string; notes: string; created_at: string }
+type WalletRecord = { id: string; title: string; record_type: string; institution: string; account_label: string; account_last_four: string; notes: string; asset_id: string | null; created_at: string }
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024
 const ACCEPTED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
@@ -32,6 +32,7 @@ export function VaultModule({ userId }: { userId: string }) {
   const [accountLabel, setAccountLabel] = useState('')
   const [lastFour, setLastFour] = useState('')
   const [notes, setNotes] = useState('')
+  const [selectedAssetId, setSelectedAssetId] = useState('')
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -43,7 +44,7 @@ export function VaultModule({ userId }: { userId: string }) {
     try {
       const [assetResult, walletResult] = await Promise.all([
         supabase.from('assets').select('id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,created_at').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at').eq('user_id', userId).order('created_at', { ascending: false }),
       ])
       if (assetResult.error) throw assetResult.error
       if (walletResult.error) throw walletResult.error
@@ -111,6 +112,7 @@ export function VaultModule({ userId }: { userId: string }) {
     const { error: rowError } = await supabase.from('assets').delete().eq('id', asset.id).eq('user_id', userId)
     if (rowError) { setError(rowError.message); return }
     setAssets((current) => current.filter((item) => item.id !== asset.id))
+    setRecords((current) => current.map(record => record.asset_id === asset.id ? { ...record, asset_id: null } : record))
   }
 
   async function startRecording() {
@@ -167,10 +169,11 @@ export function VaultModule({ userId }: { userId: string }) {
         account_label: accountLabel.trim(),
         account_last_four: lastFour,
         notes: notes.trim(),
+        asset_id: selectedAssetId || null,
       }).select('id,title,record_type,institution,account_label,account_last_four,notes,created_at').single()
       if (insertError) throw insertError
       setRecords((current) => [data as WalletRecord, ...current])
-      setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes('')
+      setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes(''); setSelectedAssetId('')
       setNotice('Wallet record saved.')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save this wallet record.')
@@ -215,11 +218,12 @@ export function VaultModule({ userId }: { userId: string }) {
         <label>Account label<input className="story-field" maxLength={100} value={accountLabel} onChange={(event) => setAccountLabel(event.target.value)} placeholder="Personal current account" /></label>
         <label>Last four digits only<input className="story-field" inputMode="numeric" maxLength={4} pattern="[0-9]{0,4}" value={lastFour} onChange={(event) => setLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" /></label>
         <label>Notes<textarea className="story-field" maxLength={5000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add safe reference notes. Do not enter passwords or full account numbers." /></label>
+        <label>Attach a saved statement or document<select className="story-field" value={selectedAssetId} onChange={(event) => setSelectedAssetId(event.target.value)}><option value="">No attachment</option>{assets.filter(asset => asset.asset_type === 'document').map(asset => <option key={asset.id} value={asset.id}>{asset.title}</option>)}</select></label>
         <p className="account-settings-note">Never store PINs, passwords, CVVs, full card numbers or online banking login details here.</p>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save wallet record'}</button>
       </form>
       {loading ? <div className="stories-empty">Loading wallet records…</div> : records.length === 0 ? <div className="stories-empty"><Wallet size={24} /><h3>No wallet records yet.</h3><p>Add a safe account reference or upload a bank statement in Assets.</p></div> :
-        <div className="vault-wallet-list">{records.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}</div><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></article>)}</div>}
+        <div className="vault-wallet-list">{records.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}{record.asset_id && assets.find(asset => asset.id === record.asset_id) && <button type="button" className="text-button" onClick={() => { const attachment = assets.find(asset => asset.id === record.asset_id); if (attachment) void openAsset(attachment) }}>Open attached document: {assets.find(asset => asset.id === record.asset_id)?.title}</button>}</div><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></article>)}</div>}
     </>}
   </section>
 }

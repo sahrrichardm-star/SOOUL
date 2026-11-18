@@ -231,6 +231,119 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
   )
 }
 
+function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComplete: (user: User) => void; onSignOut: () => void }) {
+  const metadata = user.user_metadata ?? {}
+  const googleName = String(metadata.full_name ?? metadata.name ?? '').trim().split(/\s+/).filter(Boolean)
+  const [firstName, setFirstName] = useState(String(metadata.first_name ?? googleName[0] ?? ''))
+  const [middleName, setMiddleName] = useState(String(metadata.middle_name ?? ''))
+  const [lastName, setLastName] = useState(String(metadata.last_name ?? (googleName.length > 1 ? googleName.slice(1).join(' ') : '')))
+  const [address, setAddress] = useState(String(metadata.residential_address ?? ''))
+  const [country, setCountry] = useState(String(metadata.country ?? ''))
+  const [phone, setPhone] = useState(String(metadata.phone ?? ''))
+  const [dateOfBirth, setDateOfBirth] = useState(String(metadata.date_of_birth ?? ''))
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      if (!supabase) { setError('SOOULL is not connected to its secure database.'); setLoading(false); return }
+      try {
+        const { data, error: queryError } = await supabase.from('profiles')
+          .select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth')
+          .eq('id', user.id).maybeSingle()
+        if (queryError) throw queryError
+        if (!active) return
+        if (data) {
+          setFirstName(data.first_name || String(metadata.first_name ?? googleName[0] ?? ''))
+          setMiddleName(data.middle_name || String(metadata.middle_name ?? ''))
+          setLastName(data.last_name || String(metadata.last_name ?? (googleName.length > 1 ? googleName.slice(1).join(' ') : '')))
+          setAddress(data.residential_address || String(metadata.residential_address ?? ''))
+          setCountry(data.country || String(metadata.country ?? ''))
+          setPhone(data.phone || String(metadata.phone ?? ''))
+          setDateOfBirth(data.date_of_birth || String(metadata.date_of_birth ?? ''))
+        }
+      } catch (caught) {
+        if (active) setError(caught instanceof Error ? caught.message : 'Unable to check your personal profile.')
+      } finally { if (active) setLoading(false) }
+    }
+    void load()
+    return () => { active = false }
+  }, [user.id])
+
+  async function complete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || saving) return
+    const normalizedPhone = phone.replace(/[\s().-]/g, '')
+    if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth) {
+      setError('Complete every required field before continuing.')
+      return
+    }
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      setError('Enter your phone number in international format, including + and country calling code.')
+      return
+    }
+    if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
+      setError('Date of birth cannot be in the future.')
+      return
+    }
+    setSaving(true); setError('')
+    try {
+      const profile = {
+        id: user.id,
+        first_name: firstName.trim(),
+        middle_name: middleName.trim(),
+        last_name: lastName.trim(),
+        residential_address: address.trim(),
+        country: country.trim(),
+        phone: normalizedPhone,
+        date_of_birth: dateOfBirth,
+        updated_at: new Date().toISOString(),
+      }
+      const { error: profileError } = await supabase.from('profiles').upsert(profile)
+      if (profileError) throw profileError
+      const { data, error: metadataError } = await supabase.auth.updateUser({ data: {
+        first_name: profile.first_name,
+        middle_name: profile.middle_name,
+        last_name: profile.last_name,
+        full_name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' '),
+        residential_address: profile.residential_address,
+        country: profile.country,
+        phone: profile.phone,
+        date_of_birth: profile.date_of_birth,
+      } })
+      if (metadataError) throw metadataError
+      onComplete(data.user)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to save your personal details.')
+    } finally { setSaving(false) }
+  }
+
+  if (loading) return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Preparing your account.</h1><p className="auth-intro">Checking your personal details…</p></section></main>
+
+  return <main className="auth-screen"><section className="auth-panel profile-completion-panel">
+    <div className="brand auth-brand"><BrandMark /><span>SOOULL</span></div>
+    <div className="eyebrow auth-eyebrow"><ShieldCheck size={14} /> COMPLETE YOUR PROFILE</div>
+    <h1>Let’s get to know you.</h1>
+    <p className="auth-intro">Before entering your private space, complete these details. Your information is stored in your private profile.</p>
+    <form className="auth-form" onSubmit={complete}>
+      <div className="auth-name-grid">
+        <div><label htmlFor="complete-first">First name</label><input className="story-field" id="complete-first" autoComplete="given-name" maxLength={80} required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></div>
+        <div><label htmlFor="complete-middle">Middle name <span className="optional-label">Optional</span></label><input className="story-field" id="complete-middle" autoComplete="additional-name" maxLength={80} value={middleName} onChange={(event) => setMiddleName(event.target.value)} /></div>
+        <div><label htmlFor="complete-last">Last name</label><input className="story-field" id="complete-last" autoComplete="family-name" maxLength={80} required value={lastName} onChange={(event) => setLastName(event.target.value)} /></div>
+      </div>
+      <label htmlFor="complete-address">Residential address</label><input className="story-field" id="complete-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} />
+      <label htmlFor="complete-country">Country</label><input className="story-field" id="complete-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
+      <label htmlFor="complete-phone">Phone number</label><input className="story-field" id="complete-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" />
+      <label htmlFor="complete-dob">Date of birth</label><input className="story-field" id="complete-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
+      {error && <p className="form-feedback form-error" role="alert">{error}</p>}
+      <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save and continue'}<ArrowUpRight size={17} /></button>
+    </form>
+    <button className="account-secondary-button" type="button" onClick={onSignOut}>Sign out</button>
+  </section></main>
+}
+
 function ProfileSettings({ user }: { user: User }) {
   const metadata = user.user_metadata ?? {}
   const [firstName, setFirstName] = useState(String(metadata.first_name ?? ''))
@@ -914,6 +1027,26 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   )
 }
 
+function ProfileGate({ user, onComplete, onSignOut }: { user: User; onComplete: (user: User) => void; onSignOut: () => void }) {
+  const [complete, setComplete] = useState<boolean | null>(null)
+  useEffect(() => {
+    let active = true
+    async function check() {
+      if (!supabase) { if (active) setComplete(false); return }
+      const { data, error } = await supabase.from('profiles')
+        .select('first_name,last_name,residential_address,country,phone,date_of_birth')
+        .eq('id', user.id).maybeSingle()
+      if (!active) return
+      setComplete(!error && Boolean(data?.first_name?.trim() && data?.last_name?.trim() && data?.residential_address?.trim() && data?.country?.trim() && data?.phone?.trim() && data?.date_of_birth))
+    }
+    void check()
+    return () => { active = false }
+  }, [user.id])
+  if (complete === null) return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Preparing your account.</h1><p className="auth-intro">Checking your personal details…</p></section></main>
+  if (!complete) return <ProfileCompletion user={user} onComplete={(updated) => { onComplete(updated); setComplete(true) }} onSignOut={onSignOut} />
+  return <MemberSpace user={user} onSignOut={onSignOut} />
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [mfaState, setMfaState] = useState<'checking' | 'required' | 'clear' | 'error'>('checking')
@@ -978,7 +1111,7 @@ export default function App() {
   if (user && mfaState === 'checking') return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Securing your session.</h1><p className="auth-intro">Checking your account protection…</p></section></main>
   if (user && mfaState === 'required') return <MfaChallenge onVerified={() => setMfaState('clear')} onSignOut={signOut} />
   if (user && mfaState === 'error') return <main className="auth-screen"><section className="auth-panel"><div className="eyebrow"><ShieldCheck size={14} /> ACCOUNT SECURITY</div><h1>Security check unavailable.</h1><p className="auth-intro">SOOULL could not verify your authenticator status. Member data remains locked until this check succeeds. Check your connection and try again.</p><button className="auth-submit" type="button" onClick={() => setMfaCheckAttempt((attempt) => attempt + 1)}>Retry security check</button><button className="account-secondary-button" type="button" onClick={() => void signOut()}>Sign out</button></section></main>
-  if (user) return <MemberSpace user={user} onSignOut={signOut} />
+  if (user) return <ProfileGate user={user} onComplete={setUser} onSignOut={signOut} />;
 
   return (
     <main className="site-shell">

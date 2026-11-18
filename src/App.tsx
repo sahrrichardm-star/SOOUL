@@ -700,7 +700,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
             <label htmlFor="story-date">When did it happen? <span className="optional-label">Optional</span></label>
             <input className="story-field" id="story-date" type="date" value={storyDate} onChange={(event) => setStoryDate(event.target.value)} />
             <label htmlFor="story-content">Your story</label>
-            <textarea className="story-field story-content-field" id="story-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Start wherever feels right…" rows={7} />
+            <textarea className="story-field story-content-field" id="story-content" maxLength={20000} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Start wherever feels right…" rows={7} />
             {error && <p className="form-feedback form-error" role="alert">{error}</p>}
             <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : editingStory ? 'Save changes' : 'Save story'}<ArrowUpRight size={17} /></button>
           </form>

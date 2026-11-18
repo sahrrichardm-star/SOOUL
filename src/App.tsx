@@ -792,7 +792,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('assets').select('id,title,asset_type,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,date_of_birth,created_at,updated_at').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,created_at,updated_at').eq('id', user.id).maybeSingle(),
       ])
       const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error || walletResult.error || profileResult.error
       if (failed) throw failed
@@ -929,7 +929,6 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const metadata = user.user_metadata ?? {}
   const displayName = [metadata.first_name, metadata.middle_name, metadata.last_name].filter((part) => typeof part === 'string' && part.trim()).join(' ')
     || (typeof metadata.full_name === 'string' ? metadata.full_name : '')
-    || user.email?.split('@')[0]
     || 'Member'
 
   return (

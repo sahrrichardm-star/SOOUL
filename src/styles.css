@@ -326,3 +326,11 @@ a { color: inherit; text-decoration: none; }
   .vault-wallet-form { grid-template-columns: 1fr; }
   .vault-wallet-form label, .vault-wallet-form .account-settings-note, .vault-wallet-form .auth-submit { grid-column: 1; }
 }
+
+.account-profile-card { padding: 22px; margin-bottom: 24px; border: 1px solid var(--line, #e5e1d8); border-radius: 15px; background: var(--surface, #fff); }
+.profile-avatar-row { display: flex; align-items: center; gap: 15px; margin: 18px 0; }
+.profile-avatar { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; object-fit: cover; }
+.profile-avatar-initials { background: linear-gradient(135deg, #164c7a, #d19a45); color: white; font-size: 24px; font-weight: 700; letter-spacing: .04em; }
+.profile-avatar-upload { position: relative; overflow: hidden; cursor: pointer; }
+.profile-avatar-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.profile-form { border: 0; padding: 0; }

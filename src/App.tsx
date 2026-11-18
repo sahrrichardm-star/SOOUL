@@ -784,11 +784,65 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
   </section></main>
 }
 
+type ZipEntry = { name: string; bytes: Uint8Array }
+
+function zipCrc32(bytes: Uint8Array) {
+  let crc = 0xffffffff
+  for (const byte of bytes) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function createZipArchive(files: ZipEntry[]) {
+  if (files.length > 65535) throw new Error('This backup contains too many files for one ZIP archive.')
+  const encoder = new TextEncoder()
+  const localParts: BlobPart[] = []
+  const centralParts: Uint8Array[] = []
+  let localOffset = 0
+  const now = new Date()
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2)
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+  for (const file of files) {
+    const name = encoder.encode(file.name)
+    const crc = zipCrc32(file.bytes)
+    const size = file.bytes.byteLength
+    if (size > 0xffffffff || localOffset > 0xffffffff) throw new Error('This backup is too large for a standard ZIP archive.')
+    const local = new Uint8Array(30)
+    const lv = new DataView(local.buffer)
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true)
+    lv.setUint16(8, 0, true); lv.setUint16(10, dosTime, true); lv.setUint16(12, dosDate, true)
+    lv.setUint32(14, crc, true); lv.setUint32(18, size, true); lv.setUint32(22, size, true)
+    lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true)
+    localParts.push(local, name, file.bytes)
+    const central = new Uint8Array(46)
+    const cv = new DataView(central.buffer)
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true)
+    cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true); cv.setUint16(12, dosTime, true)
+    cv.setUint16(14, dosDate, true); cv.setUint32(16, crc, true); cv.setUint32(20, size, true)
+    cv.setUint32(24, size, true); cv.setUint16(28, name.length, true); cv.setUint16(30, 0, true)
+    cv.setUint16(32, 0, true); cv.setUint16(34, 0, true); cv.setUint16(36, 0, true)
+    cv.setUint32(38, 0, true); cv.setUint32(42, localOffset, true)
+    centralParts.push(new Uint8Array([...central, ...name]))
+    localOffset += local.length + name.length + size
+  }
+  const centralSize = centralParts.reduce((total, part) => total + part.length, 0)
+  if (localOffset > 0xffffffff || centralSize > 0xffffffff) throw new Error('This backup exceeds the standard ZIP size limit.')
+  const end = new Uint8Array(22)
+  const ev = new DataView(end.buffer)
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(4, 0, true); ev.setUint16(6, 0, true)
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true)
+  ev.setUint32(12, centralSize, true); ev.setUint32(16, localOffset, true); ev.setUint16(20, 0, true)
+  return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' })
+}
+
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
   const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'trusted' | 'account'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -802,6 +856,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   async function exportMyData() {
     if (!supabase || exporting) return
     setExporting(true)
+    setExportProgress('Preparing account data…')
     setError('')
     try {
       const [
@@ -826,16 +881,24 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         walletResult.error || profileResult.error || personaProfileResult.error || personaConsentResult.error ||
         personaSourceResult.error || personaConversationResult.error || personaMessageResult.error || trustedContactsResult.error
       if (failed) throw failed
+
+      const assets = assetResult.data ?? []
+      const totalBytes = assets.reduce((total, asset) => total + Number(asset.file_size_bytes || 0), 0)
+      const maxArchiveBytes = 250 * 1024 * 1024
+      if (totalBytes > maxArchiveBytes) {
+        throw new Error('Your private files exceed the 250 MB browser-backup limit. Export your records separately or split the files into smaller batches.')
+      }
+
       const backup = {
         application: 'SOOULL',
-        format_version: 2,
+        format_version: 3,
         exported_at: new Date().toISOString(),
         account: { email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
           stories: storyResult.data ?? [],
           legacy: legacyResult.data ?? [],
           safekeeping: safeResult.data ?? [],
-          assets: assetResult.data ?? [],
+          assets: assets,
           wallet: walletResult.data ?? [],
           trusted_people: trustedContactsResult.data ?? [],
         },
@@ -848,24 +911,43 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           message_export_limit: 10000,
         },
         export_notes: [
-          'Uploaded file binaries are not embedded in this JSON backup. The assets collection includes each private storage path and file metadata.',
-          'This file contains private account information and AI Legacy conversation content. Store it securely and do not share it publicly.',
+          'Private file binaries are included under the assets/ folder in this ZIP archive.',
+          'This archive contains private account information, uploaded files and AI Legacy conversation content. Store it securely and do not share it publicly.',
           'AI Legacy messages are exported up to 10,000 records per backup.',
+          'The browser backup is limited to 250 MB of uploaded files to avoid exhausting device memory.',
         ],
       }
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' })
+      const encoder = new TextEncoder()
+      const files: ZipEntry[] = [{ name: 'sooull-backup.json', bytes: encoder.encode(JSON.stringify(backup, null, 2)) }]
+      for (let index = 0; index < assets.length; index += 1) {
+        const asset = assets[index]
+        setExportProgress('Downloading private files ' + (index + 1) + ' of ' + assets.length + '…')
+        const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(asset.storage_path, 120)
+        if (signedError || !signed?.signedUrl) throw new Error('Could not prepare private file: ' + asset.title)
+        const response = await fetch(signed.signedUrl)
+        if (!response.ok) throw new Error('Could not download private file: ' + asset.title)
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        const safeTitle = String(asset.title || 'file').normalize('NFKD')
+          .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'file'
+        files.push({ name: 'assets/' + asset.id + '-' + safeTitle, bytes })
+      }
+      setExportProgress('Creating ZIP archive…')
+      const blob = createZipArchive(files)
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `sooull-backup-${new Date().toISOString().slice(0, 10)}.json`
+      link.download = 'sooull-backup-' + new Date().toISOString().slice(0, 10) + '.zip'
       document.body.appendChild(link)
       link.click()
       link.remove()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000)
+      setExportProgress('Backup downloaded.')
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Your backup could not be created. Please try again.')
+      setExportProgress('')
     } finally {
       setExporting(false)
+      window.setTimeout(() => setExportProgress(''), 5000)
     }
   }
 
@@ -981,7 +1063,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <a className="brand" href="/"><BrandMark /><span>SOOULL</span></a>
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
-          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting} title="Download a backup of all your SOOULL entries"><Download size={15} /> {exporting ? 'Preparing…' : 'Export data'}</button>
+          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting} title="Download a ZIP backup including private uploaded files"><Download size={15} /> {exporting ? 'Preparing…' : 'Export ZIP backup'}</button>
           <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
         </div>
       </header>

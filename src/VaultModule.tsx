@@ -170,7 +170,7 @@ export function VaultModule({ userId }: { userId: string }) {
         account_last_four: lastFour,
         notes: notes.trim(),
         asset_id: selectedAssetId || null,
-      }).select('id,title,record_type,institution,account_label,account_last_four,notes,created_at').single()
+      }).select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at').single()
       if (insertError) throw insertError
       setRecords((current) => [data as WalletRecord, ...current])
       setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes(''); setSelectedAssetId('')

@@ -364,3 +364,6 @@ a { color: inherit; text-decoration: none; }
 .persona-chat-controls { display: flex; align-items: flex-end; gap: 12px; margin: 14px 0; }
 .persona-chat-controls label { display: grid; flex: 1; gap: 6px; font-size: 13px; font-weight: 600; }
 .persona-chat-controls select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line, #ddd); border-radius: 9px; background: var(--surface, #fff); color: inherit; font: inherit; }
+
+.persona-chat-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.persona-chat-actions button:disabled { opacity: .55; cursor: not-allowed; }

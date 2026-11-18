@@ -670,11 +670,11 @@ function AccountSettings({ user }: { user: User }) {
             <label htmlFor="mfa-enrol-code">2. Enter the six-digit code from your app</label><input id="mfa-enrol-code" className="story-field" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} />
             <button className="dashboard-primary" type="submit" disabled={mfaBusy || mfaCode.length !== 6}>{mfaBusy ? 'Verifying…' : 'Verify and enable'}</button>
             <button className="account-secondary-button" type="button" disabled={mfaBusy} onClick={() => void cancelMfaEnrollment()}>Cancel setup</button>
-          </form> : mfaFactors.some((factor) => factor.status === 'verified') ? null : <button className="dashboard-primary" type="button" disabled={mfaBusy} onClick={() => void beginMfaEnrollment()}>{mfaBusy ? 'Preparing…' : 'Set up authenticator'}</button>}
+          </form> : mfaFactors.length < 10 ? <button className="dashboard-primary" type="button" disabled={mfaBusy} onClick={() => void beginMfaEnrollment()}>{mfaBusy ? 'Preparing…' : mfaFactors.some((factor) => factor.status === 'verified') ? 'Add backup authenticator' : 'Set up authenticator'}</button> : <p className="account-settings-note">You have reached the maximum of 10 authenticator factors.</p>}
         </>}
         {mfaError && <p className="form-feedback form-error" role="alert">{mfaError}</p>}
         {mfaMessage && <p className="form-feedback form-success" role="status">{mfaMessage}</p>}
-        <p className="account-settings-note">Keep access to your authenticator app. Supabase currently supports TOTP factors; SOOULL does not yet provide recovery codes.</p>
+        <p className="account-settings-note">For account recovery, add a second authenticator on a separate device and keep it somewhere secure. Supabase does not issue recovery codes; losing access to every verified factor may lock you out.</p>
       </section>
       <div className="account-settings-grid">
         <form className="account-settings-card" onSubmit={updateEmail}>

@@ -712,7 +712,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
-  const [mfaState, setMfaState] = useState<'checking' | 'required' | 'clear'>('checking')
+  const [mfaState, setMfaState] = useState<'checking' | 'required' | 'clear' | 'error'>('checking')
+  const [mfaCheckAttempt, setMfaCheckAttempt] = useState(0)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
 
@@ -755,12 +756,13 @@ export default function App() {
         const verifiedTotp = factors.totp.some((factor) => factor.status === 'verified')
         if (active) setMfaState(verifiedTotp && assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2' ? 'required' : 'clear')
       } catch {
-        if (active) setMfaState('clear')
+        // Fail closed: never grant member access when the MFA status cannot be verified.
+        if (active) setMfaState('error')
       }
     }
     void checkMfa()
     return () => { active = false }
-  }, [user])
+  }, [user?.id, mfaCheckAttempt])
 
 
   async function signOut() {
@@ -771,6 +773,7 @@ export default function App() {
 
   if (user && mfaState === 'checking') return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Securing your session.</h1><p className="auth-intro">Checking your account protection…</p></section></main>
   if (user && mfaState === 'required') return <MfaChallenge onVerified={() => setMfaState('clear')} onSignOut={signOut} />
+  if (user && mfaState === 'error') return <main className="auth-screen"><section className="auth-panel"><div className="eyebrow"><ShieldCheck size={14} /> ACCOUNT SECURITY</div><h1>Security check unavailable.</h1><p className="auth-intro">SOOULL could not verify your authenticator status. Member data remains locked until this check succeeds. Check your connection and try again.</p><button className="auth-submit" type="button" onClick={() => setMfaCheckAttempt((attempt) => attempt + 1)}>Retry security check</button><button className="account-secondary-button" type="button" onClick={() => void signOut()}>Sign out</button></section></main>
   if (user) return <MemberSpace user={user} onSignOut={signOut} />
 
   return (

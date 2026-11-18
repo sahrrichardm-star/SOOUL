@@ -1064,6 +1064,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
           <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting} title="Download a ZIP backup including private uploaded files"><Download size={15} /> {exporting ? 'Preparing…' : 'Export ZIP backup'}</button>
+          {exportProgress && <span className="member-export-progress" role="status">{exportProgress}</span>}
           <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
         </div>
       </header>

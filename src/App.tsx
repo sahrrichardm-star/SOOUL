@@ -990,14 +990,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       if (!supabase) return
       const { data, error: profileError } = await supabase
         .from('profiles')
-        .select('first_name,middle_name,last_name')
+        .select('first_name')
         .eq('id', user.id)
         .maybeSingle()
       if (!active || profileError || !data) return
-      const name = [data.first_name, data.middle_name, data.last_name]
-        .filter((part): part is string => typeof part === 'string' && Boolean(part.trim()))
-        .map(part => part.trim())
-        .join(' ')
+      const name = typeof data.first_name === 'string' ? data.first_name.trim() : ''
       if (name) setProfileName(name)
     }
     void loadProfileName()
@@ -1082,8 +1079,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   )
   const metadata = user.user_metadata ?? {}
   const displayName = profileName
-    || [metadata.first_name, metadata.middle_name, metadata.last_name].filter((part) => typeof part === 'string' && part.trim()).join(' ')
-    || (typeof metadata.full_name === 'string' ? metadata.full_name : '')
+    || (typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '')
+    || (typeof metadata.full_name === 'string' ? metadata.full_name.trim().split(/\s+/)[0] : '')
     || 'Member'
 
   return (

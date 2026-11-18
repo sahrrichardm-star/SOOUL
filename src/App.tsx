@@ -803,19 +803,30 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     setExporting(true)
     setError('')
     try {
-      const [storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult] = await Promise.all([
+      const [
+        storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult,
+        personaProfileResult, personaConsentResult, personaSourceResult,
+        personaConversationResult, personaMessageResult,
+      ] = await Promise.all([
         supabase.from('stories').select('id,title,content,category,story_date,is_favorite,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('legacy_entries').select('id,title,content,entry_type,recipient,is_featured,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('assets').select('id,title,asset_type,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('assets').select('id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,created_at,updated_at').eq('id', user.id).maybeSingle(),
+        supabase.from('persona_profiles').select('id,display_name,biography,response_style,is_enabled,created_at,updated_at').eq('user_id', user.id).maybeSingle(),
+        supabase.from('persona_consents').select('id,consent_type,policy_version,granted_at,revoked_at,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('persona_sources').select('id,source_type,source_id,is_enabled,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('persona_conversations').select('id,title,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('persona_messages').select('id,conversation_id,role,content,source_refs,model_id,created_at').eq('user_id', user.id).order('created_at', { ascending: true }).range(0, 9999),
       ])
-      const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error || walletResult.error || profileResult.error
+      const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error ||
+        walletResult.error || profileResult.error || personaProfileResult.error || personaConsentResult.error ||
+        personaSourceResult.error || personaConversationResult.error || personaMessageResult.error
       if (failed) throw failed
       const backup = {
         application: 'SOOULL',
-        format_version: 1,
+        format_version: 2,
         exported_at: new Date().toISOString(),
         account: { email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
@@ -825,6 +836,19 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           assets: assetResult.data ?? [],
           wallet: walletResult.data ?? [],
         },
+        ai_legacy: {
+          persona_profile: personaProfileResult.data ?? null,
+          consents: personaConsentResult.data ?? [],
+          approved_sources: personaSourceResult.data ?? [],
+          conversations: personaConversationResult.data ?? [],
+          messages: personaMessageResult.data ?? [],
+          message_export_limit: 10000,
+        },
+        export_notes: [
+          'Uploaded file binaries are not embedded in this JSON backup. The assets collection includes each private storage path and file metadata.',
+          'This file contains private account information and AI Legacy conversation content. Store it securely and do not share it publicly.',
+          'AI Legacy messages are exported up to 10,000 records per backup.',
+        ],
       }
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)

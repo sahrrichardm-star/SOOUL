@@ -6,18 +6,20 @@ Deno.serve(async (req:Request) => {
   if(req.method!=="POST") return json(405,{error:"Method not allowed."});
   const token=(req.headers.get("Authorization")??"").replace(/^Bearer\s+/i,"");
   const url=Deno.env.get("SUPABASE_URL"), key=Deno.env.get("SUPABASE_ANON_KEY")??Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const gatewayKey=Deno.env.get("AI_GATEWAY_API_KEY"), model=Deno.env.get("AI_GATEWAY_MODEL");
   if(!token) return json(401,{error:"Sign in is required."});
-  if(!url||!key) return json(503,{error:"Secure data service is not configured."});
+  if(!url||!key||!serviceKey) return json(503,{error:"Secure data service is not configured."});
   if(!gatewayKey||!model) return json(503,{error:"AI model service is not configured yet. Persona settings can be saved, but AI conversations are not active."});
   const db=createClient(url,key,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   try {
     const {data:auth,error:authErr}=await db.auth.getUser(token);
     if(authErr||!auth.user) return json(401,{error:"Your session is invalid. Sign in again."});
     const uid=auth.user.id, body=await req.json(), prompt=typeof body.prompt==="string"?body.prompt.trim():"";
     let conversationId=typeof body.conversationId==="string"?body.conversationId:null;
     if(!prompt||prompt.length>4000) return json(400,{error:"Enter a message of up to 4,000 characters."});
-    const {data:withinQuota,error:quotaError}=await db.rpc("consume_persona_chat_quota");
+    const {data:withinQuota,error:quotaError}=await admin.rpc("consume_persona_chat_quota",{p_user_id:uid});
     if(quotaError) {
       console.error("persona-chat quota check failed",quotaError);
       return json(503,{error:"AI request protection is temporarily unavailable. Please try again shortly."});

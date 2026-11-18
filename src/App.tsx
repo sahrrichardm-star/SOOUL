@@ -807,7 +807,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const [
         storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult,
         personaProfileResult, personaConsentResult, personaSourceResult,
-        personaConversationResult, personaMessageResult,
+        personaConversationResult, personaMessageResult, trustedContactsResult,
       ] = await Promise.all([
         supabase.from('stories').select('id,title,content,category,story_date,is_favorite,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('legacy_entries').select('id,title,content,entry_type,recipient,is_featured,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
@@ -820,10 +820,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         supabase.from('persona_sources').select('id,source_type,source_id,is_enabled,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('persona_conversations').select('id,title,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('persona_messages').select('id,conversation_id,role,content,source_refs,model_id,created_at').eq('user_id', user.id).order('created_at', { ascending: true }).range(0, 9999),
+        supabase.from('trusted_contacts').select('id,full_name,relationship,email,phone,notes,is_primary,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
       ])
       const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error ||
         walletResult.error || profileResult.error || personaProfileResult.error || personaConsentResult.error ||
-        personaSourceResult.error || personaConversationResult.error || personaMessageResult.error
+        personaSourceResult.error || personaConversationResult.error || personaMessageResult.error || trustedContactsResult.error
       if (failed) throw failed
       const backup = {
         application: 'SOOULL',
@@ -836,6 +837,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           safekeeping: safeResult.data ?? [],
           assets: assetResult.data ?? [],
           wallet: walletResult.data ?? [],
+          trusted_people: trustedContactsResult.data ?? [],
         },
         ai_legacy: {
           persona_profile: personaProfileResult.data ?? null,

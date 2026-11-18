@@ -20,6 +20,19 @@ function isValidInternationalPhone(value: string) {
   return /^\+[1-9]\d{7,14}$/.test(value)
 }
 
+function getErrorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof Error) return caught.message
+  if (caught && typeof caught === 'object') {
+    const value = caught as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown }
+    const message = typeof value.message === 'string' ? value.message : fallback
+    const code = typeof value.code === 'string' ? ' (' + value.code + ')' : ''
+    const details = typeof value.details === 'string' && value.details ? ' Details: ' + value.details : ''
+    const hint = typeof value.hint === 'string' && value.hint ? ' Hint: ' + value.hint : ''
+    return message + code + details + hint
+  }
+  return fallback
+}
+
 type Story = { id: string; user_id: string; title: string; content: string; category: StoryCategory; story_date: string | null; is_favorite: boolean; created_at: string; updated_at: string }
 
 const pillars = [
@@ -319,7 +332,8 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
       // Do not make successful saving depend on a second Auth metadata write.
       onComplete(user)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to save your personal details.')
+      console.error('SOOULL profile save failed', caught)
+      setError(getErrorMessage(caught, 'Unable to save your personal details. Check your connection and try again.'))
     } finally { setSaving(false) }
   }
 

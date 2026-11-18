@@ -160,6 +160,26 @@ export function PersonaModule({ userId }: { userId: string }) {
     }
   }
 
+  async function deleteConversation() {
+    if (!supabase || !conversationId || historyLoading || chatBusy) return
+    if (!window.confirm('Delete this AI conversation and its messages permanently?')) return
+    setHistoryLoading(true)
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('persona_conversations')
+        .delete().eq('id', conversationId).eq('user_id', userId)
+      if (deleteError) throw deleteError
+      setConversations(current => current.filter(item => item.id !== conversationId))
+      setConversationId(null)
+      setChatMessages([])
+      setMessage('Conversation deleted.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete this conversation.')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   function startNewConversation() {
     setConversationId(null)
     setChatMessages([])
@@ -217,7 +237,7 @@ export function PersonaModule({ userId }: { userId: string }) {
     {enabled && <section className="persona-chat-panel">
       <h3>Talk with the AI legacy companion</h3>
       <p>Responses are AI-generated and based only on the entries you approved. The companion does not claim to be the real person.</p>
-      <div className="persona-chat-controls"><label>Saved conversations<select value={conversationId ?? ''} onChange={e => e.target.value ? void openConversation(e.target.value) : startNewConversation()}><option value="">New conversation</option>{conversations.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><button type="button" className="text-button" onClick={startNewConversation}>New chat</button></div>
+      <div className="persona-chat-controls"><label>Saved conversations<select value={conversationId ?? ''} onChange={e => e.target.value ? void openConversation(e.target.value) : startNewConversation()}><option value="">New conversation</option>{conversations.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><div className="persona-chat-actions"><button type="button" className="text-button" onClick={startNewConversation}>New chat</button>{conversationId && <button type="button" className="text-button" onClick={() => void deleteConversation()} disabled={historyLoading || chatBusy}>Delete conversation</button>}</div></div>
       <div className="persona-chat-history" aria-live="polite">
         {historyLoading ? <p>Loading conversation…</p> : chatMessages.length === 0 ? <p>Your conversation will appear here once the AI model service is configured.</p> : chatMessages.map((item, index) => <article className={item.role === 'user' ? 'persona-chat-user' : 'persona-chat-assistant'} key={index}><strong>{item.role === 'user' ? 'You' : 'SOOULL AI'}</strong><p>{item.content}</p>{item.sources?.length ? <small>Sources: {item.sources.map(source => source.title).join(', ')}</small> : null}</article>)}
       </div>

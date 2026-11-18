@@ -1,13 +1,14 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
   Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
-import { LegacyModule, SafekeepingModule } from './PrivateCollections'
-import { VaultModule } from './VaultModule'
-import { PersonaModule } from './PersonaModule'
+const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.LegacyModule })))
+const SafekeepingModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.SafekeepingModule })))
+const VaultModule = lazy(() => import('./VaultModule').then(module => ({ default: module.VaultModule })))
+const PersonaModule = lazy(() => import('./PersonaModule').then(module => ({ default: module.PersonaModule })))
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
@@ -995,10 +996,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       </section>
 
       </>}
-      {activeSection === 'legacy' && <LegacyModule userId={user.id} />}
-      {activeSection === 'safekeeping' && <SafekeepingModule userId={user.id} />}
-      {activeSection === 'vault' && <VaultModule userId={user.id} />}
-      {activeSection === 'persona' && <PersonaModule userId={user.id} />}
+      {activeSection === 'legacy' && <Suspense fallback={<section className="stories-empty">Loading legacy records…</section>}><LegacyModule userId={user.id} /></Suspense>}
+      {activeSection === 'safekeeping' && <Suspense fallback={<section className="stories-empty">Loading safekeeping…</section>}><SafekeepingModule userId={user.id} /></Suspense>}
+      {activeSection === 'vault' && <Suspense fallback={<section className="stories-empty">Loading assets and wallet…</section>}><VaultModule userId={user.id} /></Suspense>}
+      {activeSection === 'persona' && <Suspense fallback={<section className="stories-empty">Loading AI legacy…</section>}><PersonaModule userId={user.id} /></Suspense>}
       {activeSection === 'account' && <AccountSettings user={user} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>

@@ -227,7 +227,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       document.body.appendChild(link)
       link.click()
       link.remove()
-      URL.revokeObjectURL(url)
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Your backup could not be created. Please try again.')
     } finally {
@@ -246,6 +246,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     const { data, error: queryError } = await supabase
       .from('stories')
       .select('id,user_id,title,content,category,story_date,is_favorite,created_at,updated_at')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     if (queryError) setError(queryError.message)
     else setStories((data ?? []) as Story[])
@@ -286,7 +287,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       story_date: storyDate || null,
     }
     const result = editingStory
-      ? await supabase.from('stories').update(values).eq('id', editingStory.id).select().single()
+      ? await supabase.from('stories').update(values).eq('id', editingStory.id).eq('user_id', user.id).select().single()
       : await supabase.from('stories').insert({ ...values, user_id: user.id }).select().single()
 
     if (result.error) {
@@ -303,7 +304,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
   async function removeStory(story: Story) {
     if (!supabase || !window.confirm(`Delete “${story.title}”? This cannot be undone.`)) return
-    const { error: deleteError } = await supabase.from('stories').delete().eq('id', story.id)
+    const { error: deleteError } = await supabase.from('stories').delete().eq('id', story.id).eq('user_id', user.id)
     if (deleteError) setError(deleteError.message)
     else setStories((current) => current.filter((item) => item.id !== story.id))
   }
@@ -311,7 +312,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   async function toggleFavorite(story: Story) {
     if (!supabase) return
     const nextValue = !story.is_favorite
-    const { error: updateError } = await supabase.from('stories').update({ is_favorite: nextValue }).eq('id', story.id)
+    const { error: updateError } = await supabase.from('stories').update({ is_favorite: nextValue }).eq('id', story.id).eq('user_id', user.id)
     if (updateError) setError(updateError.message)
     else setStories((current) => current.map((item) => item.id === story.id ? { ...item, is_favorite: nextValue } : item))
   }

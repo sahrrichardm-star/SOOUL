@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { LegacyModule, SafekeepingModule } from './PrivateCollections'
+import { VaultModule } from './VaultModule'
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
@@ -498,7 +499,7 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
-  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'account'>('stories')
+  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'account'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -682,6 +683,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button type="button" className={activeSection === 'stories' ? 'active' : ''} onClick={() => setActiveSection('stories')}><BookOpen size={16} /> Stories</button>
         <button type="button" className={activeSection === 'legacy' ? 'active' : ''} onClick={() => setActiveSection('legacy')}><Infinity size={16} /> Legacy</button>
         <button type="button" className={activeSection === 'safekeeping' ? 'active' : ''} onClick={() => setActiveSection('safekeeping')}><ShieldCheck size={16} /> Safekeeping</button>
+        <button type="button" className={activeSection === 'vault' ? 'active' : ''} onClick={() => setActiveSection('vault')}><LockKeyhole size={16} /> Assets & Wallet</button>
         <button type="button" className={activeSection === 'account' ? 'active' : ''} onClick={() => setActiveSection('account')}><Settings size={16} /> Account</button>
       </nav>
 
@@ -720,6 +722,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       </>}
       {activeSection === 'legacy' && <LegacyModule userId={user.id} />}
       {activeSection === 'safekeeping' && <SafekeepingModule userId={user.id} />}
+      {activeSection === 'vault' && <VaultModule userId={user.id} />}
       {activeSection === 'account' && <AccountSettings user={user} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>

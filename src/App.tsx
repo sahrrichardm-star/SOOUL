@@ -5,6 +5,7 @@ import {
   Mail, Pencil, Plus, Search, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { LegacyModule, SafekeepingModule } from './PrivateCollections'
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
@@ -182,6 +183,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
+  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -298,6 +300,13 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button className="dashboard-primary" type="button" onClick={openNewStory}><Plus size={17} /> Write a story</button>
       </section>
 
+      <nav className="member-nav" aria-label="Your SOOULL collections">
+        <button type="button" className={activeSection === 'stories' ? 'active' : ''} onClick={() => setActiveSection('stories')}><BookOpen size={16} /> Stories</button>
+        <button type="button" className={activeSection === 'legacy' ? 'active' : ''} onClick={() => setActiveSection('legacy')}><Infinity size={16} /> Legacy</button>
+        <button type="button" className={activeSection === 'safekeeping' ? 'active' : ''} onClick={() => setActiveSection('safekeeping')}><ShieldCheck size={16} /> Safekeeping</button>
+      </nav>
+
+      {activeSection === 'stories' && <>
       <section className="dashboard-stats" aria-label="Your story summary">
         <div className="dashboard-stat"><span className="stat-icon"><BookOpen size={18} /></span><strong>{stories.length}</strong><span>Stories saved</span></div>
         <div className="dashboard-stat"><span className="stat-icon"><Heart size={18} /></span><strong>{stories.filter((story) => story.is_favorite).length}</strong><span>Favourites</span></div>
@@ -328,6 +337,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
               </article>
             ))}</div>}
       </section>
+
+      </>}
+      {activeSection === 'legacy' && <LegacyModule userId={user.id} />}
+      {activeSection === 'safekeeping' && <SafekeepingModule userId={user.id} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
 

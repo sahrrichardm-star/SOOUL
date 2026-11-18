@@ -9,6 +9,7 @@ const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({
 const SafekeepingModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.SafekeepingModule })))
 const VaultModule = lazy(() => import('./VaultModule').then(module => ({ default: module.VaultModule })))
 const PersonaModule = lazy(() => import('./PersonaModule').then(module => ({ default: module.PersonaModule })))
+const TrustedPeopleModule = lazy(() => import('./TrustedPeopleModule').then(module => ({ default: module.TrustedPeopleModule })))
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
@@ -785,7 +786,7 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
-  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'account'>('stories')
+  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'trusted' | 'account'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -999,6 +1000,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button type="button" className={activeSection === 'safekeeping' ? 'active' : ''} onClick={() => setActiveSection('safekeeping')}><ShieldCheck size={16} /> Safekeeping</button>
         <button type="button" className={activeSection === 'vault' ? 'active' : ''} onClick={() => setActiveSection('vault')}><LockKeyhole size={16} /> Assets & Wallet</button>
         <button type="button" className={activeSection === 'persona' ? 'active' : ''} onClick={() => setActiveSection('persona')}><Sparkles size={16} /> AI Legacy</button>
+        <button type="button" className={activeSection === 'trusted' ? 'active' : ''} onClick={() => setActiveSection('trusted')}><Users size={16} /> Trusted People</button>
         <button type="button" className={activeSection === 'account' ? 'active' : ''} onClick={() => setActiveSection('account')}><Settings size={16} /> Account</button>
       </nav>
 
@@ -1039,6 +1041,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       {activeSection === 'safekeeping' && <Suspense fallback={<section className="stories-empty">Loading safekeeping…</section>}><SafekeepingModule userId={user.id} /></Suspense>}
       {activeSection === 'vault' && <Suspense fallback={<section className="stories-empty">Loading assets and wallet…</section>}><VaultModule userId={user.id} /></Suspense>}
       {activeSection === 'persona' && <Suspense fallback={<section className="stories-empty">Loading AI legacy…</section>}><PersonaModule userId={user.id} /></Suspense>}
+      {activeSection === 'trusted' && <Suspense fallback={<section className="stories-empty">Loading trusted people…</section>}><TrustedPeopleModule userId={user.id} /></Suspense>}
       {activeSection === 'account' && <AccountSettings user={user} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>

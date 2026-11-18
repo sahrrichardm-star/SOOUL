@@ -312,8 +312,9 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
         date_of_birth: dateOfBirth,
         updated_at: new Date().toISOString(),
       }
-      const { error: profileError } = await supabase.from('profiles').upsert(profile)
+      const { data: savedProfile, error: profileError } = await supabase.from('profiles').upsert(profile).select('id').single()
       if (profileError) throw profileError
+      if (!savedProfile?.id) throw new Error('Your profile was not confirmed as saved. Please try again.')
       // The private profiles row is the source of truth for profile completion.
       // Do not make successful saving depend on a second Auth metadata write.
       onComplete(user)

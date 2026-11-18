@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
-  Mail, Pencil, Plus, Search, ShieldCheck, Sparkles, Trash2, X,
+  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { LegacyModule, SafekeepingModule } from './PrivateCollections'
@@ -181,9 +181,104 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
   )
 }
 
+function AccountSettings({ user }: { user: User }) {
+  const [email, setEmail] = useState(user.email ?? '')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [emailMessage, setEmailMessage] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
+  async function updateEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || emailLoading) return
+    const nextEmail = email.trim().toLowerCase()
+    setEmailError('')
+    setEmailMessage('')
+    if (!nextEmail || nextEmail === (user.email ?? '').toLowerCase()) {
+      setEmailError('Enter a different email address.')
+      return
+    }
+    setEmailLoading(true)
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ email: nextEmail })
+      if (updateError) throw updateError
+      setEmailMessage('Email change requested. Follow the confirmation instructions sent by Supabase before the new address becomes active.')
+    } catch (caught) {
+      setEmailError(caught instanceof Error ? caught.message : 'Unable to update your email. Please try again.')
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  async function updatePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || passwordLoading) return
+    setPasswordError('')
+    setPasswordMessage('')
+    if (newPassword.length < 8) {
+      setPasswordError('Use a password with at least 8 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Your passwords do not match.')
+      return
+    }
+    setPasswordLoading(true)
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
+      if (updateError) throw updateError
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordMessage('Your password has been updated.')
+    } catch (caught) {
+      setPasswordError(caught instanceof Error ? caught.message : 'Unable to update your password. Please try again.')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  return (
+    <section className="collection-section account-settings">
+      <div className="collection-heading">
+        <div><span className="eyebrow">MEMBER PROFILE</span><h2>Account settings</h2><p>Manage the email address and password used to access your SOOULL account.</p></div>
+      </div>
+      <div className="account-settings-grid">
+        <form className="account-settings-card" onSubmit={updateEmail}>
+          <div className="account-settings-icon"><Mail size={19} /></div>
+          <h3>Email address</h3>
+          <p>Current address: <strong>{user.email ?? 'Not available'}</strong></p>
+          <label htmlFor="account-new-email">New email address</label>
+          <input className="story-field" id="account-new-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+          {emailError && <p className="form-feedback form-error" role="alert">{emailError}</p>}
+          {emailMessage && <p className="form-feedback form-success" role="status">{emailMessage}</p>}
+          <button className="dashboard-primary" type="submit" disabled={emailLoading}>{emailLoading ? 'Sending…' : 'Request email change'}</button>
+          <p className="account-settings-note">Supabase may require confirmation from your current and new email addresses.</p>
+        </form>
+        <form className="account-settings-card" onSubmit={updatePassword}>
+          <div className="account-settings-icon"><LockKeyhole size={19} /></div>
+          <h3>Password</h3>
+          <p>Use a unique password that you do not reuse on other services.</p>
+          <label htmlFor="account-new-password">New password</label>
+          <input className="story-field" id="account-new-password" type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="At least 8 characters" />
+          <label htmlFor="account-confirm-password">Confirm new password</label>
+          <input className="story-field" id="account-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Enter it again" />
+          {passwordError && <p className="form-feedback form-error" role="alert">{passwordError}</p>}
+          {passwordMessage && <p className="form-feedback form-success" role="status">{passwordMessage}</p>}
+          <button className="dashboard-primary" type="submit" disabled={passwordLoading}>{passwordLoading ? 'Updating…' : 'Update password'}</button>
+          <p className="account-settings-note">If your security settings require recent authentication, sign out and sign in again before retrying.</p>
+        </form>
+      </div>
+    </section>
+  )
+}
+
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
-  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping'>('stories')
+  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'account'>('stories')
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -363,6 +458,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button type="button" className={activeSection === 'stories' ? 'active' : ''} onClick={() => setActiveSection('stories')}><BookOpen size={16} /> Stories</button>
         <button type="button" className={activeSection === 'legacy' ? 'active' : ''} onClick={() => setActiveSection('legacy')}><Infinity size={16} /> Legacy</button>
         <button type="button" className={activeSection === 'safekeeping' ? 'active' : ''} onClick={() => setActiveSection('safekeeping')}><ShieldCheck size={16} /> Safekeeping</button>
+        <button type="button" className={activeSection === 'account' ? 'active' : ''} onClick={() => setActiveSection('account')}><Settings size={16} /> Account</button>
       </nav>
 
       {activeSection === 'stories' && <>
@@ -400,6 +496,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       </>}
       {activeSection === 'legacy' && <LegacyModule userId={user.id} />}
       {activeSection === 'safekeeping' && <SafekeepingModule userId={user.id} />}
+      {activeSection === 'account' && <AccountSettings user={user} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
 

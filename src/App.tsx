@@ -12,6 +12,14 @@ const PersonaModule = lazy(() => import('./PersonaModule').then(module => ({ def
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'
+function normalizeInternationalPhone(value: string) {
+  return value.replace(/[\s().-]/g, '')
+}
+
+function isValidInternationalPhone(value: string) {
+  return /^\\+[1-9]\\d{7,14}$/.test(value)
+}
+
 type Story = { id: string; user_id: string; title: string; content: string; category: StoryCategory; story_date: string | null; is_favorite: boolean; created_at: string; updated_at: string }
 
 const pillars = [
@@ -305,18 +313,9 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
       }
       const { error: profileError } = await supabase.from('profiles').upsert(profile)
       if (profileError) throw profileError
-      const { data, error: metadataError } = await supabase.auth.updateUser({ data: {
-        first_name: profile.first_name,
-        middle_name: profile.middle_name,
-        last_name: profile.last_name,
-        full_name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' '),
-        residential_address: profile.residential_address,
-        country: profile.country,
-        phone: profile.phone,
-        date_of_birth: profile.date_of_birth,
-      } })
-      if (metadataError) throw metadataError
-      onComplete(data.user)
+      // The private profiles row is the source of truth for profile completion.
+      // Do not make successful saving depend on a second Auth metadata write.
+      onComplete(user)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save your personal details.')
     } finally { setSaving(false) }
@@ -337,7 +336,7 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
       </div>
       <label htmlFor="complete-address">Residential address</label><input className="story-field" id="complete-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} />
       <label htmlFor="complete-country">Country</label><input className="story-field" id="complete-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
-      <label htmlFor="complete-phone">Phone number</label><input className="story-field" id="complete-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" />
+      <label htmlFor="complete-phone">Phone number (international format)</label><input className="story-field" id="complete-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="complete-phone-help" /><p className="account-settings-note" id="complete-phone-help">Start with +, then your country calling code and full number. Examples: +232 (Sierra Leone), +1 (US/Canada), +44 (UK). Use the worldwide international format, not a local area code.</p>
       <label htmlFor="complete-dob">Date of birth</label><input className="story-field" id="complete-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}
       <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save and continue'}<ArrowUpRight size={17} /></button>

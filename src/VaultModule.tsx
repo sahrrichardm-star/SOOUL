@@ -38,7 +38,11 @@ export function VaultModule({ userId }: { userId: string }) {
   const chunksRef = useRef<Blob[]>([])
 
   async function load() {
-    if (!supabase) return
+    if (!supabase) {
+      setError('Secure storage is not configured. Please try again later.')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -58,6 +62,20 @@ export function VaultModule({ userId }: { userId: string }) {
   }
 
   useEffect(() => { void load() }, [userId])
+
+  useEffect(() => {
+    return () => {
+      const recorder = recorderRef.current
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.ondataavailable = null
+        recorder.onstop = null
+        recorder.stop()
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+      recorderRef.current = null
+    }
+  }, [])
 
   async function saveFile(file: File, preferredTitle?: string) {
     if (!supabase) throw new Error('Secure storage is not configured.')

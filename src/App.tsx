@@ -87,12 +87,12 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       return
     }
     if (mode === 'signup') {
-      const normalizedPhone = phone.replace(/[\\s().-]/g, '')
+      const normalizedPhone = phone.replace(/[\s().-]/g, '')
       if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth) {
         setError('Enter your first name, last name, residential address, country, phone number and date of birth.')
         return
       }
-      if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) {
+      if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
         setError('Enter your phone number in international format, including + and country calling code (for example, +232...).')
         return
       }
@@ -125,7 +125,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
               full_name: [firstName, middleName, lastName].map((part) => part.trim()).filter(Boolean).join(' '),
               residential_address: address.trim(),
               country: country.trim(),
-              phone: phone.replace(/[\\s().-]/g, ''),
+              phone: phone.replace(/[\s().-]/g, ''),
               date_of_birth: dateOfBirth,
             },
           },
@@ -280,12 +280,12 @@ function ProfileSettings({ user }: { user: User }) {
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    const normalizedPhone = phone.replace(/[\\s().-]/g, '')
+    const normalizedPhone = phone.replace(/[\s().-]/g, '')
     if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
       setError('Enter a valid name, address, country, phone number and date of birth.')
       return
     }
-    if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedPhone)) {
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
       setError('Enter your phone number in international format, including + and country calling code.')
       return
     }

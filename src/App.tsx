@@ -194,6 +194,75 @@ function AccountSettings({ user }: { user: User }) {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [mfaFactors, setMfaFactors] = useState<Array<{ id: string; friendly_name: string | null; status: string }>>([])
+  const [mfaLoading, setMfaLoading] = useState(true)
+  const [mfaBusy, setMfaBusy] = useState(false)
+  const [mfaError, setMfaError] = useState('')
+  const [mfaMessage, setMfaMessage] = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState('')
+  const [mfaQr, setMfaQr] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadMfaFactors() {
+      if (!supabase) { setMfaLoading(false); return }
+      try {
+        const { data, error } = await supabase.auth.mfa.listFactors()
+        if (error) throw error
+        if (active) setMfaFactors(data.totp.map((factor) => ({ id: factor.id, friendly_name: factor.friendly_name, status: factor.status })))
+      } catch (caught) {
+        if (active) setMfaError(caught instanceof Error ? caught.message : 'Unable to load authenticator settings.')
+      } finally {
+        if (active) setMfaLoading(false)
+      }
+    }
+    void loadMfaFactors()
+    return () => { active = false }
+  }, [])
+
+  async function beginMfaEnrollment() {
+    if (!supabase || mfaBusy) return
+    setMfaBusy(true); setMfaError(''); setMfaMessage('')
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'SOOULL authenticator' })
+      if (error) throw error
+      setMfaFactorId(data.id)
+      setMfaQr(data.totp.qr_code)
+      setMfaSecret(data.totp.secret)
+      setMfaCode('')
+    } catch (caught) {
+      setMfaError(caught instanceof Error ? caught.message : 'Unable to start authenticator setup.')
+    } finally { setMfaBusy(false) }
+  }
+
+  async function verifyMfaEnrollment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || !mfaFactorId || mfaBusy) return
+    setMfaBusy(true); setMfaError(''); setMfaMessage('')
+    try {
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
+      if (challengeError) throw challengeError
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: challenge.id, code: mfaCode.trim() })
+      if (verifyError) throw verifyError
+      setMfaFactorId(''); setMfaQr(''); setMfaSecret(''); setMfaCode('')
+      const { data, error } = await supabase.auth.mfa.listFactors()
+      if (error) throw error
+      setMfaFactors(data.totp.map((factor) => ({ id: factor.id, friendly_name: factor.friendly_name, status: factor.status })))
+      setMfaMessage('Authenticator verification complete. Two-factor authentication is now enabled for this account. Other active sessions may need to sign in again.')
+    } catch (caught) {
+      setMfaError(caught instanceof Error ? caught.message : 'Authenticator verification failed. Check the code and try again.')
+    } finally { setMfaBusy(false) }
+  }
+
+  async function cancelMfaEnrollment() {
+    if (!supabase || !mfaFactorId || mfaBusy) { setMfaFactorId(''); setMfaQr(''); setMfaSecret(''); return }
+    setMfaBusy(true)
+    try { await supabase.auth.mfa.unenroll({ factorId: mfaFactorId }) } catch { /* Unverified factors may be removed automatically by Supabase. */ }
+    setMfaFactorId(''); setMfaQr(''); setMfaSecret(''); setMfaCode('')
+    setMfaBusy(false)
+  }
 
   async function updateEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -249,6 +318,40 @@ function AccountSettings({ user }: { user: User }) {
       <div className="collection-heading">
         <div><span className="eyebrow">MEMBER PROFILE</span><h2>Account settings</h2><p>Manage the email address and password used to access your SOOULL account.</p></div>
       </div>
+      <section className="account-mfa-card">
+        <div className="account-settings-icon"><ShieldCheck size={19} /></div>
+        <h3>Two-factor authentication</h3>
+        <p>Add an authenticator app as a second verification step when signing in. Compatible apps include Google Authenticator, Microsoft Authenticator and 1Password.</p>
+        {mfaLoading ? <p className="account-settings-note">Checking authenticator status…</p> : <>
+          {mfaFactors.filter((factor) => factor.status === 'verified').length > 0
+            ? <p className="form-feedback form-success" role="status">Authenticator protection is enabled.</p>
+            : <p className="account-settings-note">Authenticator protection is currently not enabled.</p>}
+          {mfaFactors.filter((factor) => factor.status === 'verified').map((factor) => <div className="mfa-factor-row" key={factor.id}><span>{factor.friendly_name || 'Authenticator app'} · Active</span><button type="button" className="account-delete-button" disabled={mfaBusy} onClick={async () => {
+            if (!supabase || mfaBusy || !window.confirm('Remove this authenticator? Your account will no longer require this second factor.')) return
+            setMfaBusy(true); setMfaError(''); setMfaMessage('')
+            try {
+              const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
+              if (error) throw error
+              const { data, error: listError } = await supabase.auth.mfa.listFactors()
+              if (listError) throw listError
+              setMfaFactors(data.totp.map((item) => ({ id: item.id, friendly_name: item.friendly_name, status: item.status })))
+              setMfaMessage('Authenticator removed.')
+            } catch (caught) { setMfaError(caught instanceof Error ? caught.message : 'Unable to remove authenticator.') }
+            finally { setMfaBusy(false) }
+          }}>Remove authenticator</button></div>)}
+          {mfaFactorId ? <form className="mfa-enrollment" onSubmit={verifyMfaEnrollment}>
+            <p>1. Scan this QR code using your authenticator app. If scanning is unavailable, enter the setup key manually.</p>
+            {mfaQr && <img className="mfa-qr" src={mfaQr.startsWith('data:') ? mfaQr : `data:image/svg+xml;utf8,${encodeURIComponent(mfaQr)}`} alt="Authenticator setup QR code" />}
+            <label htmlFor="mfa-secret">Manual setup key</label><input id="mfa-secret" className="story-field" readOnly value={mfaSecret} onFocus={(event) => event.currentTarget.select()} />
+            <label htmlFor="mfa-enrol-code">2. Enter the six-digit code from your app</label><input id="mfa-enrol-code" className="story-field" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} />
+            <button className="dashboard-primary" type="submit" disabled={mfaBusy || mfaCode.length !== 6}>{mfaBusy ? 'Verifying…' : 'Verify and enable'}</button>
+            <button className="account-secondary-button" type="button" disabled={mfaBusy} onClick={() => void cancelMfaEnrollment()}>Cancel setup</button>
+          </form> : mfaFactors.some((factor) => factor.status === 'verified') ? null : <button className="dashboard-primary" type="button" disabled={mfaBusy} onClick={() => void beginMfaEnrollment()}>{mfaBusy ? 'Preparing…' : 'Set up authenticator'}</button>}
+        </>}
+        {mfaError && <p className="form-feedback form-error" role="alert">{mfaError}</p>}
+        {mfaMessage && <p className="form-feedback form-success" role="status">{mfaMessage}</p>}
+        <p className="account-settings-note">Keep access to your authenticator app. Supabase currently supports TOTP factors; SOOULL does not yet provide recovery codes.</p>
+      </section>
       <div className="account-settings-grid">
         <form className="account-settings-card" onSubmit={updateEmail}>
           <div className="account-settings-icon"><Mail size={19} /></div>
@@ -306,6 +409,55 @@ function AccountSettings({ user }: { user: User }) {
       </section>
     </section>
   )
+}
+
+
+function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSignOut: () => void }) {
+  const [factorId, setFactorId] = useState('')
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function loadFactor() {
+      if (!supabase) return
+      const { data, error: factorError } = await supabase.auth.mfa.listFactors()
+      if (factorError) { if (active) setError(factorError.message); return }
+      const factor = data.totp.find((item) => item.status === 'verified')
+      if (active && factor) setFactorId(factor.id)
+      else if (active) setError('No verified authenticator was found. Contact support to recover account access.')
+    }
+    void loadFactor()
+    return () => { active = false }
+  }, [])
+
+  async function verify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || !factorId || loading) return
+    setLoading(true); setError('')
+    try {
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+      if (challengeError) throw challengeError
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.id, code: code.trim() })
+      if (verifyError) throw verifyError
+      onVerified()
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'The verification code was not accepted.') }
+    finally { setLoading(false) }
+  }
+
+  return <main className="auth-screen"><section className="auth-panel">
+    <div className="eyebrow"><ShieldCheck size={14} /> ACCOUNT SECURITY</div>
+    <h1>Verify it’s you.</h1>
+    <p className="auth-intro">Enter the current six-digit code from your authenticator app to continue to SOOULL.</p>
+    <form className="auth-form" onSubmit={verify}>
+      <label htmlFor="mfa-login-code">Authenticator code</label>
+      <input id="mfa-login-code" className="story-field" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} />
+      {error && <p className="form-feedback form-error" role="alert">{error}</p>}
+      <button className="auth-submit" type="submit" disabled={loading || !factorId || code.length !== 6}>{loading ? 'Verifying…' : 'Verify and continue'}<ArrowUpRight size={17} /></button>
+    </form>
+    <div className="auth-switches"><button type="button" onClick={onSignOut}>Sign out</button></div>
+  </section></main>
 }
 
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
@@ -560,11 +712,12 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
+  const [mfaState, setMfaState] = useState<'checking' | 'required' | 'clear'>('checking')
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('signup')
 
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase) { setMfaState('clear'); return }
     let active = true
     let recoveringPassword = false
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -587,12 +740,37 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    async function checkMfa() {
+      if (!user || !supabase) { setMfaState('clear'); return }
+      setMfaState('checking')
+      try {
+        const [{ data: assurance, error: assuranceError }, { data: factors, error: factorsError }] = await Promise.all([
+          supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+          supabase.auth.mfa.listFactors(),
+        ])
+        if (assuranceError) throw assuranceError
+        if (factorsError) throw factorsError
+        const verifiedTotp = factors.totp.some((factor) => factor.status === 'verified')
+        if (active) setMfaState(verifiedTotp && assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2' ? 'required' : 'clear')
+      } catch {
+        if (active) setMfaState('clear')
+      }
+    }
+    void checkMfa()
+    return () => { active = false }
+  }, [user])
+
+
   async function signOut() {
     if (!supabase) return
     await supabase.auth.signOut()
     setUser(null)
   }
 
+  if (user && mfaState === 'checking') return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Securing your session.</h1><p className="auth-intro">Checking your account protection…</p></section></main>
+  if (user && mfaState === 'required') return <MfaChallenge onVerified={() => setMfaState('clear')} onSignOut={signOut} />
   if (user) return <MemberSpace user={user} onSignOut={signOut} />
 
   return (

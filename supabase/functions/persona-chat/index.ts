@@ -16,7 +16,11 @@ Deno.serve(async (req:Request) => {
   try {
     const {data:auth,error:authErr}=await db.auth.getUser(token);
     if(authErr||!auth.user) return json(401,{error:"Your session is invalid. Sign in again."});
-    const uid=auth.user.id, body=await req.json(), prompt=typeof body.prompt==="string"?body.prompt.trim():"";
+    const rawBody=await req.text();
+    if(rawBody.length>16000) return json(413,{error:"Request is too large."});
+    let body:Record<string,unknown>;
+    try { body=JSON.parse(rawBody); } catch { return json(400,{error:"Request body must be valid JSON."}); }
+    const uid=auth.user.id, prompt=typeof body.prompt==="string"?body.prompt.trim():"";
     let conversationId=typeof body.conversationId==="string"?body.conversationId:null;
     if(!prompt||prompt.length>4000) return json(400,{error:"Enter a message of up to 4,000 characters."});
     const {data:withinQuota,error:quotaError}=await admin.rpc("consume_persona_chat_quota",{p_user_id:uid});

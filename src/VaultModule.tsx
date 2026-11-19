@@ -22,6 +22,8 @@ export function VaultModule({ userId }: { userId: string }) {
   const [assetSearch, setAssetSearch] = useState('')
   const [assetTypeFilter, setAssetTypeFilter] = useState('all')
   const [records, setRecords] = useState<WalletRecord[]>([])
+  const [walletSearch, setWalletSearch] = useState('')
+  const [walletTypeFilter, setWalletTypeFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [recording, setRecording] = useState(false)
@@ -225,6 +227,10 @@ export function VaultModule({ userId }: { userId: string }) {
     (!assetSearch.trim() || asset.title.toLowerCase().includes(assetSearch.trim().toLowerCase())) &&
     (assetTypeFilter === 'all' || asset.asset_type === assetTypeFilter)
   )
+  const filteredRecords = records.filter((record) =>
+    (!walletSearch.trim() || [record.title, record.institution, record.account_label, record.notes].join(' ').toLowerCase().includes(walletSearch.trim().toLowerCase())) &&
+    (walletTypeFilter === 'all' || record.record_type === walletTypeFilter)
+  )
 
   return <section className="vault-section">
     <div className="stories-toolbar"><div><span className="eyebrow">YOUR PRIVATE VAULT</span><h2>Assets & wallet</h2></div><span className="vault-lock"><ShieldCheck size={16} /> Private storage</span></div>
@@ -265,8 +271,16 @@ export function VaultModule({ userId }: { userId: string }) {
         <p className="account-settings-note">Never store PINs, passwords, CVVs, full card numbers or online banking login details here.</p>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save wallet record'}</button>
       </form>
-      {loading ? <div className="stories-empty">Loading wallet records…</div> : records.length === 0 ? <div className="stories-empty"><Wallet size={24} /><h3>No wallet records yet.</h3><p>Add a safe account reference or upload a bank statement in Assets.</p></div> :
-        <div className="vault-wallet-list">{records.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}{record.asset_id && assets.find(asset => asset.id === record.asset_id) && <button type="button" className="text-button" onClick={() => { const attachment = assets.find(asset => asset.id === record.asset_id); if (attachment) void openAsset(attachment) }}>Open attached document: {assets.find(asset => asset.id === record.asset_id)?.title}</button>}</div><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></article>)}</div>}
+      {loading ? <div className="stories-empty">Loading wallet records…</div> : records.length === 0 ? <div className="stories-empty"><Wallet size={24} /><h3>No wallet records yet.</h3><p>Add a safe account reference or upload a bank statement in Assets.</p></div> : <>
+        <div className="vault-asset-toolbar">
+          <input className="story-field" type="search" aria-label="Search wallet records" placeholder="Search wallet records…" value={walletSearch} onChange={(event) => setWalletSearch(event.target.value)} />
+          <select className="story-field" aria-label="Filter wallet records by type" value={walletTypeFilter} onChange={(event) => setWalletTypeFilter(event.target.value)}>
+            <option value="all">All record types</option><option value="bank_account_reference">Bank account</option><option value="payment_method_reference">Payment method</option><option value="bank_statement">Bank statement</option><option value="investment">Investment</option><option value="loan">Loan</option><option value="tax">Tax</option><option value="other">Other</option>
+          </select>
+        </div>
+        {filteredRecords.length === 0 ? <div className="stories-empty"><h3>No matching wallet records.</h3><p>Try another search term or record type.</p></div> :
+          <div className="vault-wallet-list">{filteredRecords.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}{record.asset_id && assets.find(asset => asset.id === record.asset_id) && <button type="button" className="text-button" onClick={() => { const attachment = assets.find(asset => asset.id === record.asset_id); if (attachment) void openAsset(attachment) }}>Open attached document: {assets.find(asset => asset.id === record.asset_id)?.title}</button>}</div><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></article>)}</div>}
+      </>}
     </>}
   </section>
 }

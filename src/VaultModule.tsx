@@ -19,6 +19,8 @@ function classify(file: File): string {
 export function VaultModule({ userId }: { userId: string }) {
   const [section, setSection] = useState<'assets' | 'wallet'>('assets')
   const [assets, setAssets] = useState<Asset[]>([])
+  const [assetSearch, setAssetSearch] = useState('')
+  const [assetTypeFilter, setAssetTypeFilter] = useState('all')
   const [records, setRecords] = useState<WalletRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -219,6 +221,11 @@ export function VaultModule({ userId }: { userId: string }) {
     return bytes < 1024 * 1024 ? Math.max(1, Math.round(bytes / 1024)) + ' KB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  const filteredAssets = assets.filter((asset) =>
+    (!assetSearch.trim() || asset.title.toLowerCase().includes(assetSearch.trim().toLowerCase())) &&
+    (assetTypeFilter === 'all' || asset.asset_type === assetTypeFilter)
+  )
+
   return <section className="vault-section">
     <div className="stories-toolbar"><div><span className="eyebrow">YOUR PRIVATE VAULT</span><h2>Assets & wallet</h2></div><span className="vault-lock"><ShieldCheck size={16} /> Private storage</span></div>
     <div className="member-nav vault-tabs">
@@ -235,8 +242,16 @@ export function VaultModule({ userId }: { userId: string }) {
       <div className="vault-recording-panel"><div><Mic size={19} /><div><strong>Record your voice</strong><p>Save a voice sample for your personal archive. AI voice features are not enabled yet.</p></div></div>
         <button className={recording ? 'vault-stop-button' : 'account-secondary-button'} type="button" disabled={uploading} onClick={() => recording ? stopRecording() : void startRecording()}>{recording ? 'Stop & save recording' : 'Start recording'}</button>
       </div>
-      {loading ? <div className="stories-empty">Loading your files…</div> : assets.length === 0 ? <div className="stories-empty"><FileText size={24} /><h3>Your asset library is empty.</h3><p>Upload a document, photo, audio or video to start building your personal archive.</p></div> :
-        <div className="vault-asset-grid">{assets.map((asset) => <article className="vault-asset-card" key={asset.id}><div className="vault-asset-icon">{asset.asset_type === 'photo' ? <Image /> : asset.asset_type === 'video' ? <Video /> : asset.asset_type === 'audio' ? <Mic /> : <FileText />}</div><div className="vault-asset-info"><strong>{asset.title}</strong><span>{asset.asset_type} · {formatSize(asset.file_size_bytes)}</span><span>{new Date(asset.created_at).toLocaleDateString()}</span></div><div className="vault-asset-actions"><button type="button" onClick={() => void openAsset(asset)} aria-label={'Open ' + asset.title}><Play size={15} /></button><button type="button" onClick={() => void deleteAsset(asset)} aria-label={'Delete ' + asset.title}><Trash2 size={15} /></button></div></article>)}</div>}
+      {loading ? <div className="stories-empty">Loading your files…</div> : assets.length === 0 ? <div className="stories-empty"><FileText size={24} /><h3>Your asset library is empty.</h3><p>Upload a document, photo, audio or video to start building your personal archive.</p></div> : <>
+        <div className="vault-asset-toolbar">
+          <input className="story-field" type="search" aria-label="Search private files" placeholder="Search your files…" value={assetSearch} onChange={(event) => setAssetSearch(event.target.value)} />
+          <select className="story-field" aria-label="Filter files by type" value={assetTypeFilter} onChange={(event) => setAssetTypeFilter(event.target.value)}>
+            <option value="all">All file types</option><option value="photo">Photos</option><option value="document">Documents</option><option value="audio">Audio</option><option value="video">Video</option><option value="other">Other</option>
+          </select>
+        </div>
+        {filteredAssets.length === 0 ? <div className="stories-empty"><h3>No matching files.</h3><p>Try another search term or file type.</p></div> :
+          <div className="vault-asset-grid">{filteredAssets.map((asset) => <article className="vault-asset-card" key={asset.id}><div className="vault-asset-icon">{asset.asset_type === 'photo' ? <Image /> : asset.asset_type === 'video' ? <Video /> : asset.asset_type === 'audio' ? <Mic /> : <FileText />}</div><div className="vault-asset-info"><strong>{asset.title}</strong><span>{asset.asset_type} · {formatSize(asset.file_size_bytes)}</span><span>{new Date(asset.created_at).toLocaleDateString()}</span></div><div className="vault-asset-actions"><button type="button" onClick={() => void openAsset(asset)} aria-label={'Open ' + asset.title}><Play size={15} /></button><button type="button" onClick={() => void deleteAsset(asset)} aria-label={'Delete ' + asset.title}><Trash2 size={15} /></button></div></article>)}</div>}
+      </>}
     </> : <>
       <div className="vault-upload-panel"><div><h3>Financial records, organised</h3><p>Keep account references and statements together. Upload statements in Assets, then add a matching record here.</p></div></div>
       <form className="vault-wallet-form" onSubmit={saveWalletRecord}>

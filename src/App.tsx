@@ -434,19 +434,8 @@ function ProfileSettings({ user }: { user: User }) {
         avatar_path: avatarPath || null,
         updated_at: new Date().toISOString(),
       }
-      const { error: saveError } = await supabase.from('profiles').upsert(profile)
+      const { error: saveError } = await supabase.from('profiles').upsert(profile).select('id').single()
       if (saveError) throw saveError
-      const { error: metadataError } = await supabase.auth.updateUser({ data: {
-        first_name: profile.first_name,
-        middle_name: profile.middle_name,
-        last_name: profile.last_name,
-        full_name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' '),
-        residential_address: profile.residential_address,
-        country: profile.country,
-        phone: profile.phone,
-        date_of_birth: profile.date_of_birth,
-      } })
-      if (metadataError) throw metadataError
       setMessage('Your personal details have been updated.')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save your profile.')
@@ -466,17 +455,23 @@ function ProfileSettings({ user }: { user: User }) {
       const path = user.id + '/avatar/' + crypto.randomUUID() + '.' + (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
       const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: file.type, upsert: false })
       if (uploadError) throw uploadError
-      const { error: updateError } = await supabase.from('profiles').upsert({ id: user.id, avatar_path: uploaded.path, updated_at: new Date().toISOString() })
+      const { error: updateError } = await supabase.from('profiles').upsert({ id: user.id, avatar_path: uploaded.path, updated_at: new Date().toISOString() }).select('id').single()
       if (updateError) {
         await supabase.storage.from('private-assets').remove([uploaded.path])
         throw updateError
       }
-      if (avatarPath) await supabase.storage.from('private-assets').remove([avatarPath])
+      const previousAvatarPath = avatarPath
+      setAvatarPath(uploaded.path)
       const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(uploaded.path, 3600)
       if (signedError) throw signedError
-      setAvatarPath(uploaded.path)
       setAvatarUrl(signed.signedUrl)
-      setMessage('Profile photo updated.')
+      if (previousAvatarPath) {
+        const { error: cleanupError } = await supabase.storage.from('private-assets').remove([previousAvatarPath])
+        if (cleanupError) setMessage('Profile photo updated. The previous image could not be cleaned up and may need maintenance.')
+        else setMessage('Profile photo updated.')
+      } else {
+        setMessage('Profile photo updated.')
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to upload your profile photo.')
     }

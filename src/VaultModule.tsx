@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { FileText, Image, Mic, Play, ShieldCheck, Trash2, Upload, Wallet, Video } from 'lucide-react'
+import { FileText, Image, Mic, Pencil, Play, ShieldCheck, Trash2, Upload, Wallet, Video } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
 type Asset = { id: string; title: string; asset_type: string; storage_path: string; mime_type: string; file_size_bytes: number; created_at: string }
@@ -22,6 +22,7 @@ export function VaultModule({ userId }: { userId: string }) {
   const [assetSearch, setAssetSearch] = useState('')
   const [assetTypeFilter, setAssetTypeFilter] = useState('all')
   const [records, setRecords] = useState<WalletRecord[]>([])
+  const [editingRecord, setEditingRecord] = useState<WalletRecord | null>(null)
   const [walletSearch, setWalletSearch] = useState('')
   const [walletTypeFilter, setWalletTypeFilter] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -193,8 +194,7 @@ export function VaultModule({ userId }: { userId: string }) {
     if (lastFour && !/^\d{4}$/.test(lastFour)) { setError('Enter only the last four digits, or leave this field blank.'); return }
     setSaving(true); setError(''); setNotice('')
     try {
-      const { data, error: insertError } = await supabase.from('wallet_records').insert({
-        user_id: userId,
+      const values = {
         title: title.trim(),
         record_type: recordType,
         institution: institution.trim(),
@@ -202,11 +202,16 @@ export function VaultModule({ userId }: { userId: string }) {
         account_last_four: lastFour,
         notes: notes.trim(),
         asset_id: selectedAssetId || null,
-      }).select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at').single()
-      if (insertError) throw insertError
-      setRecords((current) => [data as WalletRecord, ...current])
+      }
+      const result = editingRecord
+        ? await supabase.from('wallet_records').update({ ...values, updated_at: new Date().toISOString() }).eq('id', editingRecord.id).eq('user_id', userId).select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at').single()
+        : await supabase.from('wallet_records').insert({ ...values, user_id: userId }).select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at').single()
+      if (result.error) throw result.error
+      const saved = result.data as WalletRecord
+      setRecords((current) => editingRecord ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
+      setEditingRecord(null)
       setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes(''); setSelectedAssetId('')
-      setNotice('Wallet record saved.')
+      setNotice(editingRecord ? 'Wallet record updated.' : 'Wallet record saved.')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save this wallet record.')
     } finally { setSaving(false) }
@@ -217,6 +222,24 @@ export function VaultModule({ userId }: { userId: string }) {
     const { error: deleteError } = await supabase.from('wallet_records').delete().eq('id', record.id).eq('user_id', userId)
     if (deleteError) { setError(deleteError.message); return }
     setRecords((current) => current.filter((item) => item.id !== record.id))
+    if (editingRecord?.id === record.id) {
+      setEditingRecord(null)
+      setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes(''); setSelectedAssetId('')
+    }
+  }
+
+  function editWalletRecord(record: WalletRecord) {
+    setEditingRecord(record)
+    setTitle(record.title)
+    setRecordType(record.record_type)
+    setInstitution(record.institution || '')
+    setAccountLabel(record.account_label || '')
+    setLastFour(record.account_last_four || '')
+    setNotes(record.notes || '')
+    setSelectedAssetId(record.asset_id || '')
+    setSection('wallet')
+    setError('')
+    setNotice('')
   }
 
   function formatSize(bytes: number) {
@@ -269,7 +292,8 @@ export function VaultModule({ userId }: { userId: string }) {
         <label>Notes<textarea className="story-field" maxLength={5000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add safe reference notes. Do not enter passwords or full account numbers." /></label>
         <label>Attach a saved statement or document<select className="story-field" value={selectedAssetId} onChange={(event) => setSelectedAssetId(event.target.value)}><option value="">No attachment</option>{assets.filter(asset => asset.asset_type === 'document').map(asset => <option key={asset.id} value={asset.id}>{asset.title}</option>)}</select></label>
         <p className="account-settings-note">Never store PINs, passwords, CVVs, full card numbers or online banking login details here.</p>
-        <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save wallet record'}</button>
+        <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : editingRecord ? 'Save changes' : 'Save wallet record'}</button>
+        {editingRecord && <button className="account-secondary-button" type="button" onClick={() => { setEditingRecord(null); setTitle(''); setInstitution(''); setAccountLabel(''); setLastFour(''); setNotes(''); setSelectedAssetId('') }}>Cancel editing</button>}
       </form>
       {loading ? <div className="stories-empty">Loading wallet records…</div> : records.length === 0 ? <div className="stories-empty"><Wallet size={24} /><h3>No wallet records yet.</h3><p>Add a safe account reference or upload a bank statement in Assets.</p></div> : <>
         <div className="vault-asset-toolbar">
@@ -279,7 +303,7 @@ export function VaultModule({ userId }: { userId: string }) {
           </select>
         </div>
         {filteredRecords.length === 0 ? <div className="stories-empty"><h3>No matching wallet records.</h3><p>Try another search term or record type.</p></div> :
-          <div className="vault-wallet-list">{filteredRecords.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}{record.asset_id && assets.find(asset => asset.id === record.asset_id) && <button type="button" className="text-button" onClick={() => { const attachment = assets.find(asset => asset.id === record.asset_id); if (attachment) void openAsset(attachment) }}>Open attached document: {assets.find(asset => asset.id === record.asset_id)?.title}</button>}</div><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></article>)}</div>}
+          <div className="vault-wallet-list">{filteredRecords.map((record) => <article className="vault-wallet-card" key={record.id}><div><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><h3>{record.title}</h3><p>{[record.institution, record.account_label, record.account_last_four ? '•••• ' + record.account_last_four : ''].filter(Boolean).join(' · ')}</p>{record.notes && <p>{record.notes}</p>}{record.asset_id && assets.find(asset => asset.id === record.asset_id) && <button type="button" className="text-button" onClick={() => { const attachment = assets.find(asset => asset.id === record.asset_id); if (attachment) void openAsset(attachment) }}>Open attached document: {assets.find(asset => asset.id === record.asset_id)?.title}</button>}</div><div className="vault-asset-actions"><button type="button" onClick={() => editWalletRecord(record)} aria-label={'Edit ' + record.title}><Pencil size={15} /></button><button type="button" onClick={() => void deleteWalletRecord(record)} aria-label={'Delete ' + record.title}><Trash2 size={16} /></button></div></article>)}</div>}
       </>}
     </>}
   </section>

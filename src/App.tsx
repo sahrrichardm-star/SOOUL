@@ -362,7 +362,7 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
   </section></main>
 }
 
-function ProfileSettings({ user }: { user: User }) {
+function ProfileSettings({ user, onNameSaved }: { user: User; onNameSaved: (firstName: string) => void }) {
   const metadata = user.user_metadata ?? {}
   const [firstName, setFirstName] = useState(String(metadata.first_name ?? ''))
   const [middleName, setMiddleName] = useState(String(metadata.middle_name ?? ''))
@@ -437,6 +437,7 @@ function ProfileSettings({ user }: { user: User }) {
       }
       const { error: saveError } = await supabase.from('profiles').upsert(profile).select('id').single()
       if (saveError) throw saveError
+      onNameSaved(profile.first_name)
       setMessage('Your personal details have been updated.')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save your profile.')
@@ -505,7 +506,7 @@ function ProfileSettings({ user }: { user: User }) {
   </section>
 }
 
-function AccountSettings({ user }: { user: User }) {
+function AccountSettings({ user, onNameSaved }: { user: User; onNameSaved: (firstName: string) => void }) {
   const [email, setEmail] = useState(user.email ?? '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -639,7 +640,7 @@ function AccountSettings({ user }: { user: User }) {
 
   return (
     <section className="collection-section account-settings">
-      <ProfileSettings user={user} />
+      <ProfileSettings user={user} onNameSaved={onNameSaved} />
       <div className="collection-heading">
         <div><span className="eyebrow">MEMBER PROFILE</span><h2>Account settings</h2><p>Manage the email address and password used to access your SOOULL account.</p></div>
       </div>
@@ -1177,7 +1178,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       {activeSection === 'vault' && <Suspense fallback={<section className="stories-empty">Loading assets and wallet…</section>}><VaultModule userId={user.id} /></Suspense>}
       {activeSection === 'persona' && <Suspense fallback={<section className="stories-empty">Loading AI legacy…</section>}><PersonaModule userId={user.id} /></Suspense>}
       {activeSection === 'trusted' && <Suspense fallback={<section className="stories-empty">Loading trusted people…</section>}><TrustedPeopleModule userId={user.id} /></Suspense>}
-      {activeSection === 'account' && <AccountSettings user={user} />}
+      {activeSection === 'account' && <AccountSettings user={user} onNameSaved={setProfileName} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
 

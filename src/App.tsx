@@ -373,6 +373,7 @@ function ProfileSettings({ user }: { user: User }) {
   const [dateOfBirth, setDateOfBirth] = useState(String(metadata.date_of_birth ?? ''))
   const [avatarPath, setAvatarPath] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -450,7 +451,7 @@ function ProfileSettings({ user }: { user: User }) {
       setError('Choose a JPG, PNG or WebP image up to 10 MB.')
       return
     }
-    setError(''); setMessage('')
+    setError(''); setMessage(''); setAvatarUploading(true)
     try {
       const path = user.id + '/avatar/' + crypto.randomUUID() + '.' + (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
       const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: file.type, upsert: false })
@@ -474,6 +475,8 @@ function ProfileSettings({ user }: { user: User }) {
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to upload your profile photo.')
+    } finally {
+      setAvatarUploading(false)
     }
   }
 
@@ -481,7 +484,7 @@ function ProfileSettings({ user }: { user: User }) {
     <div className="collection-heading"><div><span className="eyebrow">YOUR IDENTITY</span><h2>Personal profile</h2><p>Keep your name and personal details accurate. Your profile photo is stored privately.</p></div></div>
     <div className="profile-avatar-row">
       {avatarUrl ? <img className="profile-avatar" src={avatarUrl} alt="Your profile" /> : <div className="profile-avatar profile-avatar-initials" aria-label="Profile initials">{initials}</div>}
-      <label className="account-secondary-button profile-avatar-upload">Change photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadAvatar(event)} /></label>
+      <label className="account-secondary-button profile-avatar-upload">{avatarUploading ? 'Uploading…' : 'Change photo'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={avatarUploading} onChange={(event) => void uploadAvatar(event)} /></label>
     </div>
     {loading ? <p className="account-settings-note">Loading personal details…</p> : <form className="vault-wallet-form profile-form" onSubmit={saveProfile}>
       <label>First name<input className="story-field" maxLength={80} required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>

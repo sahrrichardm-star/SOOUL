@@ -409,3 +409,6 @@ body :is(h1,h2,h3,h4,p,span,strong,small,label,li,td,th,legend,summary,figcaptio
 body :is(input,textarea,select) { color: #17212e; background-color: #fff; }
 body :is(input,textarea,select)::placeholder { color: #707b89; opacity: 1; }
 body :is(input,textarea,select):focus { outline-color: #b88938; }
+
+.review-date.review-overdue { color: #a52d2d; font-weight: 700; }
+.review-date.review-upcoming { color: #8a5b12; font-weight: 700; }

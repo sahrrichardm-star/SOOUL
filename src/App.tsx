@@ -875,7 +875,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('assets').select('id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,created_at,updated_at').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,avatar_path,created_at,updated_at').eq('id', user.id).maybeSingle(),
         supabase.from('persona_profiles').select('id,display_name,biography,response_style,is_enabled,created_at,updated_at').eq('user_id', user.id).maybeSingle(),
         supabase.from('persona_consents').select('id,consent_type,policy_version,granted_at,revoked_at,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
         supabase.from('persona_sources').select('id,source_type,source_id,is_enabled,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
@@ -897,7 +897,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const backup = {
         application: 'SOOULL',
-        format_version: 3,
+        format_version: 4,
         exported_at: new Date().toISOString(),
         account: { email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
@@ -917,7 +917,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           message_export_limit: 10000,
         },
         export_notes: [
-          'Private file binaries are included under the assets/ folder in this ZIP archive.',
+          'Private file binaries are included under the assets/ folder; your profile photo is included under profile/.',
           'This archive contains private account information, uploaded files and AI Legacy conversation content. Store it securely and do not share it publicly.',
           'AI Legacy messages are exported up to 10,000 records per backup.',
           'The browser backup is limited to 250 MB of uploaded files to avoid exhausting device memory.',
@@ -936,6 +936,20 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         const safeTitle = String(asset.title || 'file').normalize('NFKD')
           .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'file'
         files.push({ name: 'assets/' + asset.id + '-' + safeTitle, bytes })
+      }
+      const avatarPath = profileResult.data?.avatar_path
+      if (avatarPath) {
+        setExportProgress('Downloading your profile photo…')
+        const { data: signedAvatar, error: avatarLinkError } = await supabase.storage.from('private-assets').createSignedUrl(avatarPath, 120)
+        if (avatarLinkError || !signedAvatar?.signedUrl) throw new Error('Could not prepare your profile photo for backup.')
+        const avatarResponse = await fetch(signedAvatar.signedUrl)
+        if (!avatarResponse.ok) throw new Error('Could not download your profile photo for backup.')
+        const avatarBytes = new Uint8Array(await avatarResponse.arrayBuffer())
+        if (totalBytes + avatarBytes.byteLength > maxArchiveBytes) {
+          throw new Error('Your files and profile photo exceed the 250 MB browser-backup limit. Export your records separately or split the files into smaller batches.')
+        }
+        const avatarName = avatarPath.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '-') || 'profile-photo'
+        files.push({ name: 'profile/' + avatarName, bytes: avatarBytes })
       }
       setExportProgress('Creating ZIP archive…')
       const blob = createZipArchive(files)

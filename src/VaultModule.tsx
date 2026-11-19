@@ -126,7 +126,17 @@ export function VaultModule({ userId }: { userId: string }) {
     if (!supabase || !window.confirm('Delete this file permanently?')) return
     setError('')
     const { error: storageError } = await supabase.storage.from('private-assets').remove([asset.storage_path])
-    if (storageError) { setError(storageError.message); return }
+    if (storageError) {
+      const separator = asset.storage_path.lastIndexOf('/')
+      const folder = separator >= 0 ? asset.storage_path.slice(0, separator) : ''
+      const fileName = separator >= 0 ? asset.storage_path.slice(separator + 1) : asset.storage_path
+      const { data: remaining, error: listError } = await supabase.storage.from('private-assets').list(folder, { search: fileName, limit: 10 })
+      if (listError || (remaining ?? []).some((item) => item.id !== null && item.name === fileName)) {
+        setError(storageError.message)
+        return
+      }
+      // The object is already absent; continue so a prior partial delete can be retried.
+    }
     const { error: rowError } = await supabase.from('assets').delete().eq('id', asset.id).eq('user_id', userId)
     if (rowError) { setError(rowError.message); return }
     setAssets((current) => current.filter((item) => item.id !== asset.id))

@@ -456,6 +456,11 @@ function ProfileSettings({ user }: { user: User }) {
       const path = user.id + '/avatar/' + crypto.randomUUID() + '.' + (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
       const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: file.type, upsert: false })
       if (uploadError) throw uploadError
+      const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(uploaded.path, 3600)
+      if (signedError) {
+        await supabase.storage.from('private-assets').remove([uploaded.path])
+        throw signedError
+      }
       const { error: updateError } = await supabase.from('profiles').upsert({ id: user.id, avatar_path: uploaded.path, updated_at: new Date().toISOString() }).select('id').single()
       if (updateError) {
         await supabase.storage.from('private-assets').remove([uploaded.path])
@@ -463,8 +468,6 @@ function ProfileSettings({ user }: { user: User }) {
       }
       const previousAvatarPath = avatarPath
       setAvatarPath(uploaded.path)
-      const { data: signed, error: signedError } = await supabase.storage.from('private-assets').createSignedUrl(uploaded.path, 3600)
-      if (signedError) throw signedError
       setAvatarUrl(signed.signedUrl)
       if (previousAvatarPath) {
         const { error: cleanupError } = await supabase.storage.from('private-assets').remove([previousAvatarPath])

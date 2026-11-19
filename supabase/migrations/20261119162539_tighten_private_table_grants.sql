@@ -1,0 +1,4 @@
+-- Private user data must not grant anonymous access or client-side table-wide privileges.
+-- Keep authenticated CRUD only; RLS continues to enforce row ownership and MFA.
+REVOKE ALL PRIVILEGES ON TABLE public.stories, public.legacy_entries, public.safekeeping_records, public.profiles, public.assets, public.wallet_records, public.persona_profiles, public.persona_consents, public.persona_sources, public.persona_conversations, public.persona_messages, public.trusted_contacts FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.stories, public.legacy_entries, public.safekeeping_records, public.profiles, public.assets, public.wallet_records, public.persona_profiles, public.persona_consents, public.persona_sources, public.persona_conversations, public.persona_messages, public.trusted_contacts TO authenticated;

@@ -137,7 +137,7 @@ export function SafekeepingModule({ userId }: { userId: string }) {
     setLoading(true)
     setError('')
     try {
-      const { data, error: queryError } = await supabase.from('safekeeping_records').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      const { data, error: queryError } = await supabase.from('safekeeping_records').select('*').eq('user_id', userId).order('review_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
       if (queryError) throw queryError
       setRecords((data ?? []) as SafeRecord[])
     } catch (loadError) {
@@ -199,7 +199,18 @@ export function SafekeepingModule({ userId }: { userId: string }) {
         : <div className="collection-grid">{records.map(record => <article className="collection-card" key={record.id}>
             <div className="collection-card-top"><span className="story-category">{record.record_type.replaceAll('_', ' ')}</span><FileText size={16} className="record-icon" /></div>
             <h3>{record.title}</h3>{record.institution && <div className="collection-meta">{record.institution}</div>}<p>{record.notes || 'No notes added.'}</p>
-            {record.review_date && <div className="review-date">Review by {dateLabel(record.review_date + 'T12:00:00')}</div>}
+            {record.review_date && (() => {
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              const due = new Date(record.review_date + 'T00:00:00')
+              const days = Math.round((due.getTime() - today.getTime()) / 86400000)
+              const status = days < 0 ? 'Overdue by ' + Math.abs(days) + (Math.abs(days) === 1 ? ' day' : ' days')
+                : days === 0 ? 'Due today'
+                : days <= 30 ? 'Due in ' + days + (days === 1 ? ' day' : ' days')
+                : 'Review by ' + dateLabel(record.review_date + 'T12:00:00')
+              const className = days < 0 ? 'review-date review-overdue' : days <= 30 ? 'review-date review-upcoming' : 'review-date'
+              return <div className={className} role="status">{status}</div>
+            })()}
             <div className="story-card-bottom"><span>{dateLabel(record.created_at)}</span><div><button type="button" onClick={() => openEditor(record)} aria-label={`Edit ${record.title}`}><Pencil size={15} /></button><button type="button" onClick={() => void remove(record)} aria-label={`Delete ${record.title}`}><Trash2 size={15} /></button></div></div>
           </article>)}</div>}
       {editorOpen && <div className="auth-screen story-editor-screen" onMouseDown={event => { if (event.target === event.currentTarget) setEditorOpen(false) }}>

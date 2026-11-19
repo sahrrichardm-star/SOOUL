@@ -704,7 +704,7 @@ function AccountSettings({ user }: { user: User }) {
         </form>
       </div>
       <section className="account-danger-zone">
-        <div><span className="eyebrow">PERMANENT ACTION</span><h3>Delete your SOOULL account</h3><p>This permanently removes your account and its associated stories, legacy entries and safekeeping records. This cannot be undone. Export your data first if you want to keep a copy.</p></div>
+        <div><span className="eyebrow">PERMANENT ACTION</span><h3>Delete your SOOULL account</h3><p>This permanently removes your account, stories, legacy entries, safekeeping records, wallet references, trusted contacts, AI Legacy data, profile photo and private uploaded files. This cannot be undone. Export your data first if you want to keep a copy.</p></div>
         <label htmlFor="delete-account-confirmation">Type DELETE to confirm</label>
         <input className="story-field" id="delete-account-confirmation" value={deleteConfirmation} onChange={(event) => { setDeleteConfirmation(event.target.value); setDeleteError('') }} autoComplete="off" />
         {deleteError && <p className="form-feedback form-error" role="alert">{deleteError}</p>}

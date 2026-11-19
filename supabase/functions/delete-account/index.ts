@@ -69,8 +69,52 @@ Deno.serve(async (request: Request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Auth user deletion does not remove Storage objects. Clean the user's entire
+  // private-assets folder (including nested avatar files) before deleting the account.
+  async function collectPrivatePaths(prefix: string): Promise<string[]> {
+    const paths: string[] = [];
+    let offset = 0;
+    while (true) {
+      const { data, error } = await admin.storage.from("private-assets").list(prefix, {
+        limit: 1000,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      });
+      if (error) throw error;
+      if (!data?.length) break;
+      for (const item of data) {
+        if (item.id === null) {
+          paths.push(...await collectPrivatePaths(prefix + "/" + item.name));
+        } else {
+          paths.push(prefix + "/" + item.name);
+        }
+      }
+      if (data.length < 1000) break;
+      offset += data.length;
+    }
+    return paths;
+  }
+
+  try {
+    const privatePaths = await collectPrivatePaths(user.id);
+    for (let index = 0; index < privatePaths.length; index += 1000) {
+      const batch = privatePaths.slice(index, index + 1000);
+      const { error: storageError } = await admin.storage.from("private-assets").remove(batch);
+      if (storageError) throw storageError;
+    }
+  } catch {
+    return json(503, {
+      error: "Your private files could not be securely removed. Your account was not deleted; retry later or contact SOOULL support.",
+    });
+  }
+
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
-  if (deleteError) return json(500, { error: "Your account could not be deleted. Contact SOOULL support." });
+  if (deleteError) {
+    return json(500, {
+      error: "Your private files were removed, but your account could not be deleted. Sign in again and contact SOOULL support.",
+    });
+  }
 
   return json(200, { success: true });
 });

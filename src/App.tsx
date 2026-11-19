@@ -739,7 +739,7 @@ function AccountSettings({ user }: { user: User }) {
 
 function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSignOut: () => void }) {
   const [factorId, setFactorId] = useState('')
-  const [factors, setFactors] = useState<{ id: string; friendly_name: string | null }[]>([])
+  const [factors, setFactors] = useState<{ id: string; friendly_name?: string }[]>([])
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

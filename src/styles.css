@@ -412,3 +412,7 @@ body :is(input,textarea,select):focus { outline-color: #b88938; }
 
 .review-date.review-overdue { color: #a52d2d; font-weight: 700; }
 .review-date.review-upcoming { color: #8a5b12; font-weight: 700; }
+
+.vault-asset-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, 220px); gap: 12px; }
+.vault-asset-toolbar .story-field { width: 100%; min-width: 0; }
+@media (max-width: 620px) { .vault-asset-toolbar { grid-template-columns: 1fr; } }

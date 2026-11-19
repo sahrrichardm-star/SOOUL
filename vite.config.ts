@@ -7,4 +7,20 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('@supabase/')) return 'supabase'
+          if (id.includes('lucide-react')) return 'icons'
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/scheduler/')
+          ) return 'react-vendor'
+        },
+      },
+    },
+  },
 })

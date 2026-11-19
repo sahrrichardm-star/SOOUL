@@ -739,6 +739,7 @@ function AccountSettings({ user }: { user: User }) {
 
 function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSignOut: () => void }) {
   const [factorId, setFactorId] = useState('')
+  const [factors, setFactors] = useState<{ id: string; friendly_name: string | null }[]>([])
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -749,9 +750,11 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
       if (!supabase) return
       const { data, error: factorError } = await supabase.auth.mfa.listFactors()
       if (factorError) { if (active) setError(factorError.message); return }
-      const factor = data.totp.find((item) => item.status === 'verified')
-      if (active && factor) setFactorId(factor.id)
-      else if (active) setError('No verified authenticator was found. Contact support to recover account access.')
+      const verified = data.totp.filter((item) => item.status === 'verified')
+      if (active && verified.length) {
+        setFactors(verified.map((item) => ({ id: item.id, friendly_name: item.friendly_name })))
+        setFactorId(verified[0].id)
+      } else if (active) setError('No verified authenticator was found. Contact support to recover account access.')
     }
     void loadFactor()
     return () => { active = false }
@@ -776,6 +779,12 @@ function MfaChallenge({ onVerified, onSignOut }: { onVerified: () => void; onSig
     <h1>Verify it’s you.</h1>
     <p className="auth-intro">Enter the current six-digit code from your authenticator app to continue to SOOULL.</p>
     <form className="auth-form" onSubmit={verify}>
+      {factors.length > 1 && <>
+        <label htmlFor="mfa-login-factor">Choose authenticator</label>
+        <select id="mfa-login-factor" className="story-field" value={factorId} onChange={(event) => { setFactorId(event.target.value); setCode('') }}>
+          {factors.map((factor, index) => <option key={factor.id} value={factor.id}>{factor.friendly_name || 'Authenticator ' + (index + 1)}</option>)}
+        </select>
+      </>}
       <label htmlFor="mfa-login-code">Authenticator code</label>
       <input id="mfa-login-code" className="story-field" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} />
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}

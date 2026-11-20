@@ -46,7 +46,7 @@ try {
   const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
   assert.ok(appSource.includes('isValidInternationalPhone(normalizedPhone)') && appSource.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
   const builtAssetNames = await readdir(new URL('../dist/assets/', import.meta.url))
-  const vaultChunkName = builtAssetNames.find((name) => /^VaultModule-[A-Za-z0-9_-]+\\.js$/.test(name))
+  const vaultChunkName = builtAssetNames.find((name) => name.startsWith('VaultModule-') && name.endsWith('.js'))
   assert.ok(vaultChunkName, 'The lazy-loaded private assets module must be built.')
   const vaultChunkResponse = await fetch(new URL('/assets/' + vaultChunkName, host))
   assert.equal(vaultChunkResponse.status, 200, 'Private assets module failed to load.')

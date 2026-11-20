@@ -857,7 +857,7 @@ function createZipArchive(files: ZipEntry[]) {
 
 
 function readSooullBackupZip(buffer: ArrayBuffer) {
-  if (buffer.byteLength > 260 * 1024 * 1024) throw new Error('This backup is larger than the supported 260 MB restore limit.')
+  if (buffer.byteLength > 280 * 1024 * 1024) throw new Error('This backup is larger than the supported 280 MB restore limit.')
   const view = new DataView(buffer)
   const bytes = new Uint8Array(buffer)
   const files = new Map<string, Uint8Array>()

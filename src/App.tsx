@@ -1002,7 +1002,15 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         ],
       }
       const encoder = new TextEncoder()
-      const files: ZipEntry[] = [{ name: 'sooull-backup.json', bytes: encoder.encode(JSON.stringify(backup, null, 2)) }]
+      const manifestBytes = encoder.encode(JSON.stringify(backup, null, 2))
+      if (manifestBytes.byteLength > 64 * 1024 * 1024) {
+        throw new Error('Your text records exceed the 64 MB backup manifest limit. Reduce the number or size of records before exporting.')
+      }
+      if (totalBytes + manifestBytes.byteLength > maxArchiveBytes) {
+        throw new Error('Your records and uploaded files exceed the 250 MB total backup limit. Export a smaller batch.')
+      }
+      const files: ZipEntry[] = [{ name: 'sooull-backup.json', bytes: manifestBytes }]
+      let actualBinaryBytes = 0
       for (let index = 0; index < assets.length; index += 1) {
         const asset = assets[index]
         setExportProgress('Downloading private files ' + (index + 1) + ' of ' + assets.length + '…')
@@ -1011,6 +1019,9 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         const response = await fetch(signed.signedUrl)
         if (!response.ok) throw new Error('Could not download private file: ' + asset.title)
         const bytes = new Uint8Array(await response.arrayBuffer())
+        if (bytes.byteLength !== Number(asset.file_size_bytes)) throw new Error('The stored file size changed while backing up: ' + asset.title)
+        actualBinaryBytes += bytes.byteLength
+        if (actualBinaryBytes + manifestBytes.byteLength > maxArchiveBytes) throw new Error('Your records and files exceed the 250 MB total backup limit.')
         const safeTitle = String(asset.title || 'file').normalize('NFKD')
           .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'file'
         files.push({ name: 'assets/' + asset.id + '-' + safeTitle, bytes })
@@ -1023,9 +1034,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         const avatarResponse = await fetch(signedAvatar.signedUrl)
         if (!avatarResponse.ok) throw new Error('Could not download your profile photo for backup.')
         const avatarBytes = new Uint8Array(await avatarResponse.arrayBuffer())
-        if (totalBytes + avatarBytes.byteLength > maxArchiveBytes) {
-          throw new Error('Your files and profile photo exceed the 250 MB browser-backup limit. Export your records separately or split the files into smaller batches.')
+        if (avatarBytes.byteLength > 10 * 1024 * 1024) throw new Error('Your profile photo exceeds the 10 MB backup limit.')
+        if (actualBinaryBytes + avatarBytes.byteLength + manifestBytes.byteLength > maxArchiveBytes) {
+          throw new Error('Your records, files and profile photo exceed the 250 MB total backup limit. Export a smaller batch.')
         }
+        actualBinaryBytes += avatarBytes.byteLength
         const avatarName = avatarPath.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '-') || 'profile-photo'
         files.push({ name: 'profile/' + avatarName, bytes: avatarBytes })
       }

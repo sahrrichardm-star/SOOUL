@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BellRing, CalendarClock, CheckCircle2, Clock3, FileText, HeartHandshake, KeyRound, ShieldCheck, Users } from 'lucide-react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { BellRing, CalendarClock, CheckCircle2, HeartHandshake, ShieldCheck, Users } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
 type Plan = { life_event_enabled: boolean; inactivity_enabled: boolean; inactivity_days: number; last_confirmed_at: string }
@@ -61,7 +61,6 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
     setSelectedContent(recipientGrants.map(grant => grant.content_type + ':' + grant.content_id))
   }, [selectedRecipient, grants])
 
-  const selectedContact = useMemo(() => contacts.find(contact => contact.id === newContactId), [contacts, newContactId])
 
   async function savePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

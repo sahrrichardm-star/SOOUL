@@ -6,13 +6,43 @@ type Asset = { id: string; title: string; asset_type: string; storage_path: stri
 type WalletRecord = { id: string; title: string; record_type: string; institution: string; account_label: string; account_last_four: string; notes: string; asset_id: string | null; created_at: string }
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024
-const ACCEPTED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
+const ACCEPTED_TYPES = [
+  'image/jpeg','image/png','image/webp','image/gif',
+  'application/pdf','text/plain','text/csv',
+  'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/rtf','text/rtf',
+  'application/vnd.oasis.opendocument.spreadsheet','application/vnd.oasis.opendocument.text',
+  'audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg',
+  'video/mp4','video/webm','video/quicktime'
+]
+const DOCUMENT_TYPES = new Set([
+  'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/rtf','text/rtf',
+  'application/vnd.oasis.opendocument.spreadsheet','application/vnd.oasis.opendocument.text'
+])
+const MIME_BY_EXTENSION: Record<string, string> = {
+  '.csv': 'text/csv',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.rtf': 'application/rtf',
+  '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
+  '.odt': 'application/vnd.oasis.opendocument.text',
+}
 
-function classify(file: File): string {
-  if (file.type.startsWith('image/')) return 'photo'
-  if (file.type.startsWith('audio/')) return 'audio'
-  if (file.type.startsWith('video/')) return 'video'
-  if (file.type === 'application/pdf' || file.type.startsWith('text/')) return 'document'
+function resolveFileType(file: File): string {
+  const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+  return ACCEPTED_TYPES.includes(file.type) ? file.type : MIME_BY_EXTENSION[extension] || file.type
+}
+
+function classify(file: File, mimeType = resolveFileType(file)): string {
+  if (mimeType.startsWith('image/')) return 'photo'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType === 'application/pdf' || mimeType.startsWith('text/') || DOCUMENT_TYPES.has(mimeType)) return 'document'
   return 'other'
 }
 
@@ -92,18 +122,19 @@ export function VaultModule({ userId }: { userId: string }) {
 
   async function saveFile(file: File, preferredTitle?: string) {
     if (!supabase) throw new Error('Secure storage is not configured.')
-    if (!ACCEPTED_TYPES.includes(file.type)) throw new Error('This file type is not supported.')
+    const mimeType = resolveFileType(file)
+    if (!ACCEPTED_TYPES.includes(mimeType)) throw new Error('This file type is not supported.')
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) throw new Error('Files must be between 1 byte and 100 MB.')
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-100)
     const path = userId + '/' + crypto.randomUUID() + '-' + safeName
-    const { data: stored, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: file.type, upsert: false })
+    const { data: stored, error: uploadError } = await supabase.storage.from('private-assets').upload(path, file, { contentType: mimeType, upsert: false })
     if (uploadError) throw uploadError
     const { data, error: insertError } = await supabase.from('assets').insert({
       user_id: userId,
       title: (preferredTitle || file.name).trim().slice(0, 160),
-      asset_type: classify(file),
+      asset_type: classify(file, mimeType),
       storage_path: stored.path,
-      mime_type: file.type,
+      mime_type: mimeType,
       file_size_bytes: file.size,
     }).select('id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at').single()
     if (insertError) {

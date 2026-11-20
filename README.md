@@ -91,7 +91,7 @@ Enable Supabase Auth → Password Security → Leaked Password Protection. The S
 - **Stories:** private personal memories and life events
 - **Legacy:** values, lessons, wishes and letters
 - **Safekeeping:** important records and review reminders
-- **Assets & Wallet:** private documents, photos, audio/video files, recordings and personal financial references
+- **Assets & Wallet:** private photos, PDFs, CSV and spreadsheet/office documents, audio/video files, recordings and personal financial references (100 MB per file)
 - **AI Legacy:** consent-controlled text companion based only on explicitly approved sources
 - **Trusted People:** private emergency and trusted-contact records; these contacts do not receive account access
 - **Account:** profile, avatar, email/password management, MFA and account deletion

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readdir } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 
 const host = 'http://127.0.0.1:4173'
@@ -43,8 +44,9 @@ try {
   assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
   assert.ok(javascript.includes('Phone number (optional)'), 'Phone number must remain optional in account forms.')
   assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
-  const vaultChunkName = javascript.match(/VaultModule-[A-Za-z0-9_-]+\\.js/)?.[0]
-  assert.ok(vaultChunkName, 'The lazy-loaded private assets module must be linked from the application bundle.')
+  const builtAssetNames = await readdir(new URL('../dist/assets/', import.meta.url))
+  const vaultChunkName = builtAssetNames.find((name) => /^VaultModule-[A-Za-z0-9_-]+\\.js$/.test(name))
+  assert.ok(vaultChunkName, 'The lazy-loaded private assets module must be built.')
   const vaultChunkResponse = await fetch(new URL('/assets/' + vaultChunkName, host))
   assert.equal(vaultChunkResponse.status, 200, 'Private assets module failed to load.')
   const vaultJavascript = await vaultChunkResponse.text()

@@ -67,48 +67,31 @@ export function PersonaModule({ userId }: { userId: string }) {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    if (!consented) {
-      setError('You must explicitly agree to text-persona processing before saving.')
-      return
-    }
-    if (selected.length === 0) {
-      setError('Select at least one story or legacy entry as approved source material.')
+    if (!name.trim()) {
+      setError('Enter a name for this persona before saving.')
       return
     }
     setSaving(true)
     setError('')
     setMessage('')
     try {
-      const { error: profileError } = await supabase.from('persona_profiles').upsert({
-        user_id: userId,
-        display_name: name.trim(),
-        biography: biography.trim(),
-        response_style: style,
-        is_enabled: true,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
-      if (profileError) throw profileError
-
-      const { error: clearError } = await supabase.from('persona_sources').delete().eq('user_id', userId)
-      if (clearError) throw clearError
-      const rows = sources.filter(source => selected.includes(source.id)).map(source => ({
-        user_id: userId, source_type: source.source_type, source_id: source.id, is_enabled: true,
+      const approvedSources = sources.filter(source => selected.includes(source.id)).map(source => ({
+        source_type: source.source_type,
+        source_id: source.id,
       }))
-      const { error: sourceError } = await supabase.from('persona_sources').insert(rows)
-      if (sourceError) throw sourceError
-
-      if (!consented) throw new Error('Consent is required.')
-      const { data: existing, error: consentReadError } = await supabase.from('persona_consents')
-        .select('id').eq('user_id', userId).eq('consent_type', 'text_persona').is('revoked_at', null).limit(1)
-      if (consentReadError) throw consentReadError
-      if (!existing?.length) {
-        const { error: consentError } = await supabase.from('persona_consents').insert({
-          user_id: userId, consent_type: 'text_persona', policy_version: '2026-11-18',
-        })
-        if (consentError) throw consentError
-      }
-      setEnabled(true)
-      setMessage('Persona settings and approved sources saved. AI conversations will become available after the secure model service is configured.')
+      const { data, error: saveError } = await supabase.rpc('save_persona_configuration', {
+        p_display_name: name.trim(),
+        p_biography: biography.trim(),
+        p_response_style: style,
+        p_sources: approvedSources,
+        p_consent: consented,
+      })
+      if (saveError) throw saveError
+      const isEnabled = Boolean(data?.enabled)
+      setEnabled(isEnabled)
+      setMessage(isEnabled
+        ? 'Persona profile, approved sources and consent saved successfully.'
+        : 'Persona draft saved. To activate AI Legacy, select at least one story or legacy entry and grant text-processing consent.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save persona settings.')
     } finally {
@@ -231,7 +214,7 @@ export function PersonaModule({ userId }: { userId: string }) {
         })}
       </div>
       <label className="vault-check-row"><input type="checkbox" checked={consented} onChange={e => setConsented(e.target.checked)} /><span><strong>I consent to text-based AI processing</strong><small>I understand only selected entries may be processed to generate AI responses. I can revoke this consent at any time. This consent does not cover voice or likeness generation.</small></span></label>
-      <button className="dashboard-primary" type="submit" disabled={saving || sources.length === 0 || !consented}><Save size={16} />{saving ? 'Saving…' : 'Save persona settings'}</button>
+      <button className="dashboard-primary" type="submit" disabled={saving || !name.trim()}><Save size={16} />{saving ? 'Saving…' : 'Save persona settings'}</button>
     </form>
     {enabled && <div className="vault-security-note"><CheckCircle2 size={17} /><span>Persona profile is configured. AI chat requires the secure model service credentials to be configured.</span><button type="button" className="text-button" onClick={() => void revoke()} disabled={saving}>Revoke consent and disable</button></div>}
     {enabled && <section className="persona-chat-panel">

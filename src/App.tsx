@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
-  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Users, X,
+  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, Users, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.LegacyModule })))
@@ -855,6 +855,51 @@ function createZipArchive(files: ZipEntry[]) {
   return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' })
 }
 
+
+function readSooullBackupZip(buffer: ArrayBuffer) {
+  if (buffer.byteLength > 260 * 1024 * 1024) throw new Error('This backup is larger than the supported 260 MB restore limit.')
+  const view = new DataView(buffer)
+  const bytes = new Uint8Array(buffer)
+  const files = new Map<string, Uint8Array>()
+  const decoder = new TextDecoder()
+  let offset = 0
+  while (offset + 30 <= bytes.length) {
+    const signature = view.getUint32(offset, true)
+    if (signature === 0x02014b50 || signature === 0x06054b50) break
+    if (signature !== 0x04034b50) throw new Error('This is not a valid SOOULL ZIP backup.')
+    const flags = view.getUint16(offset + 6, true)
+    const method = view.getUint16(offset + 8, true)
+    const crc = view.getUint32(offset + 14, true)
+    const compressedSize = view.getUint32(offset + 18, true)
+    const uncompressedSize = view.getUint32(offset + 22, true)
+    const nameLength = view.getUint16(offset + 26, true)
+    const extraLength = view.getUint16(offset + 28, true)
+    if ((flags & 0x08) !== 0 || method !== 0 || compressedSize !== uncompressedSize) {
+      throw new Error('This ZIP uses a compression format that SOOULL cannot safely restore. Use a SOOULL ZIP backup.')
+    }
+    const nameStart = offset + 30
+    const dataStart = nameStart + nameLength + extraLength
+    const dataEnd = dataStart + compressedSize
+    if (dataEnd > bytes.length || nameStart + nameLength > bytes.length) throw new Error('The backup archive is incomplete or damaged.')
+    const name = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength))
+    if (!name || name.startsWith('/') || name.includes('\\') || name.split('/').includes('..')) throw new Error('The backup contains an unsafe file path.')
+    if (files.has(name)) throw new Error('The backup contains duplicate file entries.')
+    const contents = bytes.slice(dataStart, dataEnd)
+    if (zipCrc32(contents) !== crc) throw new Error('A backup file failed its integrity check: ' + name)
+    files.set(name, contents)
+    if (files.size > 10005) throw new Error('The backup contains too many files.')
+    offset = dataEnd
+  }
+  const manifest = files.get('sooull-backup.json')
+  if (!manifest) throw new Error('The SOOULL backup manifest is missing.')
+  if (manifest.byteLength > 64 * 1024 * 1024) throw new Error('The backup manifest is too large to restore safely.')
+  const backup = JSON.parse(decoder.decode(manifest)) as Record<string, unknown>
+  if (backup.application !== 'SOOULL' || ![3, 4].includes(Number(backup.format_version))) {
+    throw new Error('This is not a supported SOOULL backup version.')
+  }
+  return { backup, files }
+}
+
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
   const [profileName, setProfileName] = useState('')
@@ -862,6 +907,9 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const [loadingStories, setLoadingStories] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState('')
+  const [restoring, setRestoring] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState('')
+  const restoreInputRef = useRef<HTMLInputElement | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -981,6 +1029,252 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     } finally {
       setExporting(false)
       window.setTimeout(() => setExportProgress(''), 5000)
+    }
+  }
+
+
+  async function restoreMyData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !supabase || restoring) return
+    setError('')
+    setRestoreProgress('Checking backup archive…')
+    setRestoring(true)
+    const uploadedAssetPaths: string[] = []
+    let avatarPathUploaded = ''
+    let assetsCommitted = false
+    let profileCommitted = false
+    try {
+      const { backup, files } = readSooullBackupZip(await file.arrayBuffer())
+      const collections = backup.collections && typeof backup.collections === 'object' ? backup.collections as Record<string, unknown> : {}
+      const ai = backup.ai_legacy && typeof backup.ai_legacy === 'object' ? backup.ai_legacy as Record<string, unknown> : {}
+      const rows = (value: unknown, label: string, limit = 20000): Record<string, unknown>[] => {
+        if (value == null) return []
+        if (!Array.isArray(value) || value.length > limit) throw new Error('The ' + label + ' section is invalid or exceeds the restore limit.')
+        return value.map((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('The ' + label + ' section contains an invalid record.')
+          return item as Record<string, unknown>
+        })
+      }
+      const uuid = (value: unknown, label: string) => {
+        if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+          throw new Error('A record in ' + label + ' has an invalid identifier.')
+        }
+        return value
+      }
+      const str = (value: unknown, label: string, max: number, required = false) => {
+        if (value == null && !required) return ''
+        if (typeof value !== 'string' || value.length > max || (required && !value.trim())) throw new Error('A field in ' + label + ' is invalid.')
+        return value
+      }
+      const date = (value: unknown, label: string) => {
+        if (value == null || value === '') return null
+        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value + 'T00:00:00Z'))) throw new Error('A date in ' + label + ' is invalid.')
+        return value
+      }
+      const stamp = (value: unknown) => typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : new Date().toISOString()
+      const batchUpsert = async (table: string, data: Record<string, unknown>[], conflict = 'id') => {
+        for (let index = 0; index < data.length; index += 200) {
+          const { error: saveError } = await (supabase as any).from(table).upsert(data.slice(index, index + 200), { onConflict: conflict })
+          if (saveError) throw saveError
+        }
+      }
+
+      const storiesRaw = rows(collections.stories, 'stories')
+      const legacyRaw = rows(collections.legacy, 'legacy entries')
+      const safeRaw = rows(collections.safekeeping, 'safekeeping records')
+      const assetRaw = rows(collections.assets, 'assets')
+      const walletRaw = rows(collections.wallet, 'wallet records')
+      const trustedRaw = rows(collections.trusted_people, 'trusted people')
+      const consentRaw = rows(ai.consents, 'AI Legacy consent records')
+      const sourceRaw = rows(ai.approved_sources, 'AI Legacy approved sources')
+      const conversationRaw = rows(ai.conversations, 'AI Legacy conversations')
+      const messageRaw = rows(ai.messages, 'AI Legacy messages', 10000)
+
+      const stories = storiesRaw.map((r) => ({
+        id: uuid(r.id, 'stories'), user_id: user.id, title: str(r.title, 'stories', 160, true),
+        content: str(r.content, 'stories', 20000), category: ['life','family','milestones','lessons','other'].includes(String(r.category)) ? r.category : 'life',
+        story_date: date(r.story_date, 'stories'), is_favorite: r.is_favorite === true,
+        created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+      }))
+      const legacy = legacyRaw.map((r) => ({
+        id: uuid(r.id, 'legacy entries'), user_id: user.id, title: str(r.title, 'legacy entries', 160, true),
+        content: str(r.content, 'legacy entries', 20000),
+        entry_type: ['value','wish','lesson','letter'].includes(String(r.entry_type)) ? r.entry_type : 'value',
+        recipient: str(r.recipient, 'legacy entries', 120), is_featured: r.is_featured === true,
+        created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+      }))
+      const safeRecords = safeRaw.map((r) => ({
+        id: uuid(r.id, 'safekeeping records'), user_id: user.id, title: str(r.title, 'safekeeping records', 160, true),
+        record_type: ['important_document','account_reference','property','insurance','medical_reference','other'].includes(String(r.record_type)) ? r.record_type : 'other',
+        institution: str(r.institution, 'safekeeping records', 160), notes: str(r.notes, 'safekeeping records', 20000),
+        review_date: date(r.review_date, 'safekeeping records'), created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+      }))
+      const trusted = trustedRaw.map((r) => {
+        const phone = str(r.phone, 'trusted people', 24)
+        return {
+          id: uuid(r.id, 'trusted people'), user_id: user.id, full_name: str(r.full_name, 'trusted people', 120, true),
+          relationship: str(r.relationship, 'trusted people', 80), email: str(r.email, 'trusted people', 254),
+          phone: phone && /^\+[1-9]\d{7,14}$/.test(phone) ? phone : '',
+          notes: str(r.notes, 'trusted people', 2000), is_primary: r.is_primary === true,
+          created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+        }
+      })
+
+      const allowedMime = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
+      const assetRows: Record<string, unknown>[] = []
+      const validAssetIds = new Set(assetRaw.map((r) => uuid(r.id, 'assets')))
+      let aggregateBytes = 0
+      for (let index = 0; index < assetRaw.length; index += 1) {
+        const r = assetRaw[index]
+        const id = uuid(r.id, 'assets')
+        const mime = str(r.mime_type, 'assets', 120, true)
+        const size = Number(r.file_size_bytes)
+        if (!allowedMime.includes(mime) || !Number.isSafeInteger(size) || size <= 0 || size > 100 * 1024 * 1024) throw new Error('An uploaded asset has an unsupported type or size.')
+        const matches = [...files.entries()].filter(([name]) => name.startsWith('assets/' + id + '-'))
+        if (matches.length !== 1 || matches[0][1].byteLength !== size) throw new Error('The backup is missing a complete file for asset: ' + str(r.title, 'assets', 160))
+        aggregateBytes += size
+        if (aggregateBytes > 250 * 1024 * 1024) throw new Error('The uploaded files exceed the 250 MB restore limit.')
+        setRestoreProgress('Restoring private files ' + (index + 1) + ' of ' + assetRaw.length + '…')
+        const safeName = matches[0][0].split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '-') || 'restored-file'
+        const path = user.id + '/' + crypto.randomUUID() + '-' + safeName.slice(0, 100)
+        const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, matches[0][1], { contentType: mime, upsert: false })
+        if (uploadError || !uploaded) throw uploadError || new Error('A private file could not be restored.')
+        uploadedAssetPaths.push(uploaded.path)
+        assetRows.push({
+          id, user_id: user.id, title: str(r.title, 'assets', 160, true),
+          asset_type: ['photo','document','audio','video','other'].includes(String(r.asset_type)) ? r.asset_type : 'other',
+          storage_path: uploaded.path, mime_type: mime, file_size_bytes: size, created_at: stamp(r.created_at),
+        })
+      }
+
+      const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
+      const profileRaw = account.profile && typeof account.profile === 'object' ? account.profile as Record<string, unknown> : null
+      let restoredAvatarPath: string | null = null
+      if (profileRaw?.avatar_path) {
+        const avatarEntry = [...files.entries()].find(([name]) => name.startsWith('profile/'))
+        if (avatarEntry) {
+          const avatarName = avatarEntry[0].split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '-') || 'profile-photo.webp'
+          const ext = avatarName.toLowerCase().split('.').pop()
+          const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ''
+          if (!mime || avatarEntry[1].byteLength > 10 * 1024 * 1024) throw new Error('The profile photo has an unsupported format or size.')
+          const path = user.id + '/avatar/' + crypto.randomUUID() + '-' + avatarName.slice(0, 80)
+          const { data: uploaded, error: avatarError } = await supabase.storage.from('private-assets').upload(path, avatarEntry[1], { contentType: mime, upsert: false })
+          if (avatarError || !uploaded) throw avatarError || new Error('The profile photo could not be restored.')
+          avatarPathUploaded = uploaded.path
+          restoredAvatarPath = uploaded.path
+        }
+      }
+
+      const wallet = walletRaw.map((r) => {
+        const assetId = typeof r.asset_id === 'string' && validAssetIds.has(r.asset_id) ? r.asset_id : null
+        const lastFour = str(r.account_last_four, 'wallet records', 4)
+        return {
+          id: uuid(r.id, 'wallet records'), user_id: user.id, title: str(r.title, 'wallet records', 160, true),
+          record_type: ['bank_account_reference','payment_method_reference','bank_statement','investment','loan','tax','other'].includes(String(r.record_type)) ? r.record_type : 'other',
+          institution: str(r.institution, 'wallet records', 160), account_label: str(r.account_label, 'wallet records', 100),
+          account_last_four: /^\d{4}$/.test(lastFour) ? lastFour : '', notes: str(r.notes, 'wallet records', 5000),
+          asset_id: assetId, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+        }
+      })
+
+      const personaProfile = ai.persona_profile && typeof ai.persona_profile === 'object'
+        ? (() => {
+            const r = ai.persona_profile as Record<string, unknown>
+            return [{
+              id: uuid(r.id, 'AI Legacy profile'), user_id: user.id,
+              display_name: str(r.display_name, 'AI Legacy profile', 120),
+              biography: str(r.biography, 'AI Legacy profile', 5000),
+              response_style: str(r.response_style, 'AI Legacy profile', 120) || 'warm and thoughtful',
+              is_enabled: r.is_enabled === true, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+            }]
+          })() : []
+      const consents = consentRaw.map((r) => ({
+        id: uuid(r.id, 'AI Legacy consent records'), user_id: user.id,
+        consent_type: ['text_persona','voice_processing','voice_replication','likeness_generation'].includes(String(r.consent_type)) ? r.consent_type : 'text_persona',
+        policy_version: str(r.policy_version, 'AI Legacy consent records', 80, true),
+        granted_at: stamp(r.granted_at), revoked_at: typeof r.revoked_at === 'string' ? stamp(r.revoked_at) : null,
+        created_at: stamp(r.created_at),
+      }))
+      const validSourceIds = new Set([...stories, ...legacy].map((r) => r.id))
+      const sources = sourceRaw.filter((r) => validSourceIds.has(String(r.source_id))).map((r) => ({
+        id: uuid(r.id, 'AI Legacy approved sources'), user_id: user.id,
+        source_type: r.source_type === 'story' || r.source_type === 'legacy_entry' ? r.source_type : 'story',
+        source_id: uuid(r.source_id, 'AI Legacy approved sources'), is_enabled: r.is_enabled !== false,
+        created_at: stamp(r.created_at),
+      }))
+      const conversations = conversationRaw.map((r) => ({
+        id: uuid(r.id, 'AI Legacy conversations'), user_id: user.id,
+        title: str(r.title, 'AI Legacy conversations', 160), created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+      }))
+      const validConversationIds = new Set(conversations.map((r) => r.id))
+      const messages = messageRaw.filter((r) => validConversationIds.has(String(r.conversation_id))).map((r) => ({
+        id: uuid(r.id, 'AI Legacy messages'), conversation_id: uuid(r.conversation_id, 'AI Legacy messages'),
+        user_id: user.id, role: r.role === 'assistant' ? 'assistant' : 'user',
+        content: str(r.content, 'AI Legacy messages', 12000, true),
+        source_refs: Array.isArray(r.source_refs) ? r.source_refs : [], model_id: str(r.model_id, 'AI Legacy messages', 160) || null,
+        created_at: stamp(r.created_at),
+      }))
+
+      const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRows.length +
+        consents.length + sources.length + conversations.length + messages.length + personaProfile.length
+      if (!window.confirm('Restore ' + count + ' records and ' + assetRows.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. This cannot be automatically rolled back.')) {
+        setRestoreProgress('Restore cancelled.')
+        return
+      }
+
+      setRestoreProgress('Restoring your profile…')
+      if (profileRaw) {
+        const profile = {
+          id: user.id,
+          first_name: str(profileRaw.first_name, 'profile', 80),
+          middle_name: str(profileRaw.middle_name, 'profile', 80),
+          last_name: str(profileRaw.last_name, 'profile', 80),
+          residential_address: str(profileRaw.residential_address, 'profile', 300),
+          country: str(profileRaw.country, 'profile', 100),
+          phone: str(profileRaw.phone, 'profile', 24),
+          date_of_birth: date(profileRaw.date_of_birth, 'profile'),
+          avatar_path: restoredAvatarPath,
+          updated_at: new Date().toISOString(),
+        }
+        const { error: profileError } = await supabase.from('profiles').upsert(profile).select('id').single()
+        if (profileError) throw profileError
+        profileCommitted = true
+        setProfileName(profile.first_name)
+      }
+
+      setRestoreProgress('Restoring stories, legacy and safekeeping…')
+      await batchUpsert('stories', stories)
+      await batchUpsert('legacy_entries', legacy)
+      await batchUpsert('safekeeping_records', safeRecords)
+      await batchUpsert('trusted_contacts', trusted)
+
+      setRestoreProgress('Restoring private asset records…')
+      await batchUpsert('assets', assetRows)
+      assetsCommitted = true
+
+      setRestoreProgress('Restoring wallet and AI Legacy records…')
+      await batchUpsert('wallet_records', wallet)
+      await batchUpsert('persona_profiles', personaProfile, 'user_id')
+      await batchUpsert('persona_consents', consents)
+      await batchUpsert('persona_sources', sources)
+      await batchUpsert('persona_conversations', conversations)
+      await batchUpsert('persona_messages', messages)
+
+      setRestoreProgress('Restore complete. Refreshing your workspace…')
+      window.setTimeout(() => window.location.reload(), 1200)
+    } catch (caught) {
+      if (!assetsCommitted && uploadedAssetPaths.length) {
+        await supabase.storage.from('private-assets').remove(uploadedAssetPaths)
+      }
+      if (!profileCommitted && avatarPathUploaded) {
+        await supabase.storage.from('private-assets').remove([avatarPathUploaded])
+      }
+      const message = caught instanceof Error ? caught.message : 'The backup could not be restored.'
+      setError(message + ' If some records were already restored, you can safely run this same backup again; matching records are updated.')
+      setRestoreProgress('')
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -1114,8 +1408,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <a className="brand" href="/"><BrandMark /><span>SOOULL</span></a>
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
-          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting} title="Download a ZIP backup including private uploaded files"><Download size={15} /> {exporting ? 'Preparing…' : 'Export ZIP backup'}</button>
-          {exportProgress && <span className="member-export-progress" role="status">{exportProgress}</span>}
+          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting || restoring} title="Download a ZIP backup including private uploaded files"><Download size={15} /> {exporting ? 'Preparing…' : 'Export ZIP backup'}</button>
+          <button className="member-export-button" type="button" onClick={() => restoreInputRef.current?.click()} disabled={exporting || restoring} title="Restore records and files from a SOOULL ZIP backup"><Upload size={15} /> {restoring ? 'Restoring…' : 'Restore backup'}</button>
+          <input ref={restoreInputRef} type="file" accept=".zip,application/zip" hidden onChange={(event) => void restoreMyData(event)} />
+          {(exportProgress || restoreProgress) && <span className="member-export-progress" role="status">{restoreProgress || exportProgress}</span>}
           <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
         </div>
       </header>

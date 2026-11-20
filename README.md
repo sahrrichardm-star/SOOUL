@@ -119,6 +119,7 @@ Backups contain sensitive personal information. Store them in a secure location 
 - Row Level Security is enabled on application tables.
 - Owner policies restrict records to the authenticated user.
 - MFA-aware restrictive policies protect sensitive tables and private Storage operations.
+- Supabase manages base privileges on `storage.objects`; private-file isolation is enforced by RLS owner-folder policies and the absence of anonymous object policies. Do not alter platform-managed Storage grants without testing the Storage API.
 - Private files are accessed through short-lived signed URLs.
 - AI Legacy uses server-side request limits and validates the authenticated user, active consent and approved source selection.
 - Account deletion requires a fresh authentication event and MFA when a verified factor exists.

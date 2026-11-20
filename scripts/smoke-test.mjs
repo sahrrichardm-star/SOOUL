@@ -43,7 +43,12 @@ try {
   assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
   assert.ok(javascript.includes('Phone number (optional)'), 'Phone number must remain optional in account forms.')
   assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
-  assert.ok(javascript.includes('text/csv') && javascript.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), 'Bank statement and spreadsheet formats must be supported.')
+  const vaultChunkName = javascript.match(/VaultModule-[A-Za-z0-9_-]+\\.js/)?.[0]
+  assert.ok(vaultChunkName, 'The lazy-loaded private assets module must be linked from the application bundle.')
+  const vaultChunkResponse = await fetch(new URL('/assets/' + vaultChunkName, host))
+  assert.equal(vaultChunkResponse.status, 200, 'Private assets module failed to load.')
+  const vaultJavascript = await vaultChunkResponse.text()
+  assert.ok(vaultJavascript.includes('text/csv') && vaultJavascript.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), 'Bank statement and spreadsheet formats must be supported in the private assets module.')
   assert.ok(javascript.includes('SOOULL needs to reload.'), 'The application error recovery screen must be bundled.')
   assert.ok(stylesheet.includes('--card-dark') && stylesheet.includes('#151a23'), 'High-contrast dark card styling must be bundled.')
   assert.ok(stylesheet.includes('.member-nav button.active') && stylesheet.includes('#090d13'), 'Selected navigation must remain visibly dark.')

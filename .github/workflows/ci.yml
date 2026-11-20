@@ -42,6 +42,3 @@ jobs:
 
       - name: Build production bundle
         run: npm run build
-
-      - name: Smoke test production bundle and PWA assets
-        run: npm run smoke

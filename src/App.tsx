@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import AdminDashboard from './AdminDashboard'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
-  KeyRound, Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, Users, X,
+  KeyRound, Mail, Mic, MicOff, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, Users, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.LegacyModule })))
@@ -36,6 +36,20 @@ function getErrorMessage(caught: unknown, fallback: string) {
 }
 
 type Story = { id: string; user_id: string; title: string; content: string; category: StoryCategory; story_date: string | null; is_favorite: boolean; created_at: string; updated_at: string }
+type SpeechAlternativeLike = { transcript: string }
+type SpeechResultLike = ArrayLike<SpeechAlternativeLike> & { isFinal: boolean }
+type SpeechEventLike = { resultIndex: number; results: ArrayLike<SpeechResultLike> }
+type SpeechRecognitionLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((event: SpeechEventLike) => void) | null
+  onerror: ((event: { error?: string }) => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
 
 const pillars = [
   { icon: BookHeart, title: 'Stories', description: 'Preserve the moments, memories and lessons that make your life uniquely yours.' },
@@ -1043,6 +1057,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
   const [content, setContent] = useState('')
   const [category, setCategory] = useState<StoryCategory>('life')
   const [storyDate, setStoryDate] = useState('')
+  const [dictating, setDictating] = useState(false)
+  const [dictationPreview, setDictationPreview] = useState('')
+  const [dictationError, setDictationError] = useState('')
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   useEffect(() => {
     let active = true
@@ -1061,6 +1079,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     void checkAdministratorRole()
     return () => { active = false }
   }, [user.id])
+
+  useEffect(() => () => { recognitionRef.current?.stop() }, [])
 
   async function exportMyData() {
     if (!supabase || exporting) return
@@ -1543,6 +1563,64 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     return () => { active = false }
   }, [user.id])
 
+  function toggleStoryDictation() {
+    if (dictating) {
+      recognitionRef.current?.stop()
+      setDictating(false)
+      return
+    }
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor
+      webkitSpeechRecognition?: SpeechRecognitionConstructor
+    }
+    const SpeechRecognitionApi = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
+    if (!SpeechRecognitionApi) {
+      setDictationError('Voice typing is not supported in this browser. You can still type your story normally.')
+      return
+    }
+    setDictationError('')
+    setDictationPreview('')
+    const recognition = new SpeechRecognitionApi()
+    recognition.lang = navigator.language || 'en-US'
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.onresult = (event) => {
+      let finalText = ''
+      let interimText = ''
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index]
+        const transcript = result[0]?.transcript ?? ''
+        if (result.isFinal) finalText += transcript
+        else interimText += transcript
+      }
+      if (finalText.trim()) {
+        setContent(current => {
+          const separator = current && !/\\s$/.test(current) ? ' ' : ''
+          return (current + separator + finalText.trim()).slice(0, 20000)
+        })
+      }
+      setDictationPreview(interimText.trim())
+    }
+    recognition.onerror = (event) => {
+      setDictationError(event.error === 'not-allowed'
+        ? 'Microphone permission was denied. Allow microphone access in your browser settings and try again.'
+        : 'Voice typing stopped. You can restart it or continue typing.')
+      setDictating(false)
+    }
+    recognition.onend = () => {
+      setDictating(false)
+      setDictationPreview('')
+    }
+    recognitionRef.current = recognition
+    try {
+      recognition.start()
+      setDictating(true)
+    } catch {
+      setDictationError('The microphone could not be started. Close other voice sessions and try again.')
+      setDictating(false)
+    }
+  }
+
   function openNewStory() {
     setEditingStory(null)
     setTitle('')
@@ -1726,6 +1804,15 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
             <label htmlFor="story-date">When did it happen? <span className="optional-label">Optional</span></label>
             <input className="story-field" id="story-date" type="date" value={storyDate} onChange={(event) => setStoryDate(event.target.value)} />
             <label htmlFor="story-content">Your story</label>
+            <div className="story-voice-toolbar">
+              <button className={dictating ? 'voice-recording-button' : 'account-secondary-button'} type="button" onClick={toggleStoryDictation} disabled={saving}>
+                {dictating ? <MicOff size={16} /> : <Mic size={16} />} {dictating ? 'Stop voice typing' : 'Speak your story'}
+              </button>
+              <span>{dictating ? 'Listening… speak naturally.' : 'Your spoken words will appear in the story below.'}</span>
+            </div>
+            {dictationPreview && <p className="voice-preview" aria-live="polite">Hearing: {dictationPreview}</p>}
+            {dictationError && <p className="form-feedback form-error" role="alert">{dictationError}</p>}
+            <p className="account-settings-note">Voice typing uses your browser’s speech-recognition service. SOOULL does not save an audio recording from dictation.</p>
             <textarea className="story-field story-content-field" id="story-content" maxLength={20000} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Start wherever feels right…" rows={7} />
             {error && <p className="form-feedback form-error" role="alert">{error}</p>}
             <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : editingStory ? 'Save changes' : 'Save story'}<ArrowUpRight size={17} /></button>

@@ -1197,6 +1197,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           const ext = avatarName.toLowerCase().split('.').pop()
           const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ''
           if (!mime || avatarEntry[1].byteLength > 10 * 1024 * 1024) throw new Error('The profile photo has an unsupported format or size.')
+          aggregateBytes += avatarEntry[1].byteLength
+          if (aggregateBytes > 250 * 1024 * 1024) throw new Error('The private files and profile photo exceed the 250 MB restore limit.')
           const oldAvatar = str(profileRaw.avatar_path, 'profile', 500)
           if (oldAvatar.startsWith(user.id + '/')) {
             const { data: existingAvatar, error: existingAvatarError } = await supabase.storage.from('private-assets').createSignedUrl(oldAvatar, 60)

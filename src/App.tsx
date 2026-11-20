@@ -1124,6 +1124,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const allowedMime = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
       const assetRows: Record<string, unknown>[] = []
       const validAssetIds = new Set(assetRaw.map((r) => uuid(r.id, 'assets')))
+      const existingAssetResult = assetRaw.length
+        ? await supabase.from('assets').select('id,storage_path').in('id', [...validAssetIds])
+        : { data: [], error: null }
+      if (existingAssetResult.error) throw existingAssetResult.error
+      const existingAssetPaths = new Map((existingAssetResult.data ?? []).map((r) => [r.id, r.storage_path]))
       let aggregateBytes = 0
       for (let index = 0; index < assetRaw.length; index += 1) {
         const r = assetRaw[index]
@@ -1137,14 +1142,23 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         if (aggregateBytes > 250 * 1024 * 1024) throw new Error('The uploaded files exceed the 250 MB restore limit.')
         setRestoreProgress('Restoring private files ' + (index + 1) + ' of ' + assetRaw.length + '…')
         const safeName = matches[0][0].split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '-') || 'restored-file'
-        const path = user.id + '/' + crypto.randomUUID() + '-' + safeName.slice(0, 100)
-        const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, matches[0][1], { contentType: mime, upsert: false })
-        if (uploadError || !uploaded) throw uploadError || new Error('A private file could not be restored.')
-        uploadedAssetPaths.push(uploaded.path)
+        const existingPath = existingAssetPaths.get(id)
+        let storagePath = ''
+        if (typeof existingPath === 'string' && existingPath.startsWith(user.id + '/')) {
+          const { data: existingLink, error: existingError } = await supabase.storage.from('private-assets').createSignedUrl(existingPath, 60)
+          if (!existingError && existingLink?.signedUrl) storagePath = existingPath
+        }
+        if (!storagePath) {
+          const path = user.id + '/' + crypto.randomUUID() + '-' + safeName.slice(0, 100)
+          const { data: uploaded, error: uploadError } = await supabase.storage.from('private-assets').upload(path, matches[0][1], { contentType: mime, upsert: false })
+          if (uploadError || !uploaded) throw uploadError || new Error('A private file could not be restored.')
+          uploadedAssetPaths.push(uploaded.path)
+          storagePath = uploaded.path
+        }
         assetRows.push({
           id, user_id: user.id, title: str(r.title, 'assets', 160, true),
           asset_type: ['photo','document','audio','video','other'].includes(String(r.asset_type)) ? r.asset_type : 'other',
-          storage_path: uploaded.path, mime_type: mime, file_size_bytes: size, created_at: stamp(r.created_at),
+          storage_path: storagePath, mime_type: mime, file_size_bytes: size, created_at: stamp(r.created_at),
         })
       }
 
@@ -1158,11 +1172,18 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           const ext = avatarName.toLowerCase().split('.').pop()
           const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ''
           if (!mime || avatarEntry[1].byteLength > 10 * 1024 * 1024) throw new Error('The profile photo has an unsupported format or size.')
-          const path = user.id + '/avatar/' + crypto.randomUUID() + '-' + avatarName.slice(0, 80)
-          const { data: uploaded, error: avatarError } = await supabase.storage.from('private-assets').upload(path, avatarEntry[1], { contentType: mime, upsert: false })
-          if (avatarError || !uploaded) throw avatarError || new Error('The profile photo could not be restored.')
-          avatarPathUploaded = uploaded.path
-          restoredAvatarPath = uploaded.path
+          const oldAvatar = str(profileRaw.avatar_path, 'profile', 500)
+          if (oldAvatar.startsWith(user.id + '/')) {
+            const { data: existingAvatar, error: existingAvatarError } = await supabase.storage.from('private-assets').createSignedUrl(oldAvatar, 60)
+            if (!existingAvatarError && existingAvatar?.signedUrl) restoredAvatarPath = oldAvatar
+          }
+          if (!restoredAvatarPath) {
+            const path = user.id + '/avatar/' + crypto.randomUUID() + '-' + avatarName.slice(0, 80)
+            const { data: uploaded, error: avatarError } = await supabase.storage.from('private-assets').upload(path, avatarEntry[1], { contentType: mime, upsert: false })
+            if (avatarError || !uploaded) throw avatarError || new Error('The profile photo could not be restored.')
+            avatarPathUploaded = uploaded.path
+            restoredAvatarPath = uploaded.path
+          }
         }
       }
 

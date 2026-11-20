@@ -94,16 +94,16 @@ a { color: inherit; text-decoration: none; }
 .topbar-actions { display: inline-flex; align-items: center; gap: 22px; }
 .signout-button { border: 1px solid rgba(233,185,94,.38); border-radius: 4px; padding: 10px 15px; color: #f0d39c; background: rgba(233,185,94,.07); font: inherit; font-size: 12px; cursor: pointer; transition: .2s ease; }
 .signout-button:hover { border-color: var(--gold); background: rgba(233,185,94,.14); }
-.auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgba(3,5,10,.86); backdrop-filter: blur(14px); overflow-y: auto; }
-.auth-panel { width: min(100%, 460px); position: relative; padding: 42px; border: 1px solid rgba(233,185,94,.24); border-radius: 10px; background: radial-gradient(circle at 50% 0%, rgba(36,121,232,.12), transparent 38%), #0d111a; box-shadow: 0 25px 90px rgba(0,0,0,.48); }
+.auth-screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.94); backdrop-filter: blur(14px); overflow-y: auto; }
+.auth-panel { width: min(100%, 460px); position: relative; padding: 42px; border: 1px solid rgba(233,185,94,.3); border-radius: 10px; background: radial-gradient(circle at 50% 0%, rgba(233,185,94,.07), transparent 42%), #090909; box-shadow: 0 25px 90px rgba(0,0,0,.48); }
 .icon-button { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; color: #c8cbd3; background: transparent; cursor: pointer; }
 .auth-close { position: absolute; right: 22px; top: 22px; }
 .auth-brand { margin-bottom: 36px; }
 .auth-eyebrow { display: flex; }
 .auth-panel h1 { margin: 18px 0 9px; font-family: 'Playfair Display', Georgia, serif; font-size: 39px; font-weight: 500; letter-spacing: -.04em; }
-.auth-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.auth-intro { margin: 0; color: #e1e1e1; font-size: 13px; line-height: 1.7; }
 .auth-form { display: flex; flex-direction: column; margin-top: 27px; }
-.auth-form label { margin: 15px 0 8px; color: #e2dfd6; font-size: 12px; font-weight: 600; }
+.auth-form label { margin: 15px 0 8px; color: #ffffff; font-size: 12px; font-weight: 600; }
 .auth-input-wrap { display: flex; align-items: center; gap: 11px; min-height: 48px; padding: 0 14px; border: 1px solid rgba(255,255,255,.14); border-radius: 5px; color: #a9aeba; background: rgba(255,255,255,.035); }
 .auth-input-wrap:focus-within { border-color: rgba(233,185,94,.65); box-shadow: 0 0 0 3px rgba(233,185,94,.08); }
 .auth-input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; color: #f4f0e7; background: transparent; font: inherit; font-size: 13px; }
@@ -772,3 +772,15 @@ button:active,
   .admin-footer { flex-direction: column; }
   .account-backup-card { padding: 20px; }
 }
+
+/* Voice dictation controls */
+.story-voice-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.story-voice-toolbar > span { color: #dedede; font-size: 11px; }
+.voice-recording-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 15px; border: 1px solid #e47a70; border-radius: 5px; color: #fff; background: #451b1b; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.voice-recording-button:hover { background: #5b2020; }
+.voice-preview { margin: 8px 0; padding: 10px 12px; border: 1px solid rgba(233,185,94,.25); border-radius: 5px; color: #f2d79f; background: #111; font-size: 12px; }
+.passkey-auth-button { margin-top: 20px; color: #ffe2a8; background: #101010; }
+.passkey-auth-button:hover:not(:disabled) { border-color: var(--gold-bright); background: #191919; }
+.passkey-actions { display: flex; align-items: center; gap: 12px; }
+.account-passkey-card .mfa-factor-row { gap: 14px; }
+.account-passkey-card .mfa-factor-row > span { display: inline-flex; align-items: center; gap: 8px; }

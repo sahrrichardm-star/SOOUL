@@ -65,6 +65,17 @@ Deno.serve(async (req: Request) => {
       return json(503, { error: "Platform metrics are temporarily unavailable." }, origin);
     }
 
+    const { error: auditError } = await serverClient.rpc("admin_record_audit", {
+      p_actor_id: authData.user.id,
+      p_action: "admin.dashboard.viewed",
+      p_target_user_id: null,
+      p_details: { role },
+    });
+    if (auditError) {
+      console.error("admin audit write failed", auditError);
+      return json(503, { error: "Administrator audit logging is unavailable. Dashboard access is paused." }, origin);
+    }
+
     return json(200, {
       role,
       metrics: metrics ?? {},

@@ -699,3 +699,22 @@ button:active,
   outline: 2px solid #b88938;
   outline-offset: 2px;
 }
+
+
+@supports (padding: max(0px)) {
+  .topbar {
+    min-height: calc(88px + env(safe-area-inset-top));
+    height: auto;
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  .auth-screen {
+    padding:
+      max(24px, env(safe-area-inset-top))
+      max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+  }
+  .member-shell { padding-bottom: env(safe-area-inset-bottom); }
+}

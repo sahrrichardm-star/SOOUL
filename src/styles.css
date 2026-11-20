@@ -663,3 +663,22 @@ button:active,
 .safekeeping-notice p { color: #c0cfe3; }
 .safekeeping-notice strong { color: #e1edff; }
 .dashboard-stat > span:last-child { color: var(--card-dark-muted); }
+
+
+.account-danger-zone {
+  border: 1px solid #63373a;
+  color: #f3d6d4;
+  background: #21191b;
+}
+.account-danger-zone :is(h3,label) { color: #ffc0b8; }
+.account-danger-zone p { color: #d6b6b4; }
+.account-settings-card .account-secondary-button,
+.account-profile-card .account-secondary-button,
+.account-mfa-card .account-secondary-button,
+.vault-wallet-form .account-secondary-button {
+  color: #c0c7d2;
+  border-color: #465163;
+  background: transparent;
+}
+.vault-wallet-card .text-button,
+.persona-chat-panel .text-button { color: #f0c46c; }

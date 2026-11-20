@@ -6,6 +6,7 @@ type Plan = { life_event_enabled: boolean; inactivity_enabled: boolean; inactivi
 type Contact = { id: string; full_name: string; email: string | null; relationship: string | null }
 type Recipient = { id: string; trusted_contact_id: string; recipient_email: string; invitation_status: string; recipient_user_id: string | null }
 type Item = { id: string; title: string; content_type: 'story' | 'legacy_entry' | 'safekeeping_record' | 'asset'; detail: string }
+type Notification = { id: string; kind: string; title: string; body: string; created_at: string; read_at: string | null }
 
 export default function LegacyAccessModule({ userId }: { userId: string }) {
   const [plan, setPlan] = useState<Plan>({ life_event_enabled: false, inactivity_enabled: false, inactivity_days: 7, last_confirmed_at: new Date().toISOString() })
@@ -13,6 +14,7 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [grants, setGrants] = useState<Array<{ recipient_id: string; content_type: string; content_id: string }>>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [selectedRecipient, setSelectedRecipient] = useState('')
   const [selectedContent, setSelectedContent] = useState<string[]>([])
   const [newContactId, setNewContactId] = useState('')
@@ -26,7 +28,7 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
     if (!supabase) { setError('SOOULL is not connected to its secure database.'); setLoading(false); return }
     setLoading(true); setError('')
     try {
-      const [planResult, contactResult, recipientResult, grantResult, storyResult, legacyResult, safeResult, assetResult] = await Promise.all([
+      const [planResult, contactResult, recipientResult, grantResult, storyResult, legacyResult, safeResult, assetResult, notificationResult] = await Promise.all([
         supabase.from('legacy_access_plans').select('life_event_enabled,inactivity_enabled,inactivity_days,last_confirmed_at').eq('owner_id', userId).maybeSingle(),
         supabase.from('trusted_contacts').select('id,full_name,email,relationship').eq('user_id', userId).order('full_name'),
         supabase.from('legacy_access_recipients').select('id,trusted_contact_id,recipient_email,invitation_status,recipient_user_id').eq('owner_id', userId).order('created_at'),
@@ -35,14 +37,16 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
         supabase.from('legacy_entries').select('id,title').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('safekeeping_records').select('id,title').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('assets').select('id,title,asset_type').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('legacy_access_notifications').select('id,kind,title,body,created_at,read_at').eq('owner_id', userId).order('created_at', { ascending: false }).limit(10),
       ])
-      for (const result of [planResult, contactResult, recipientResult, grantResult, storyResult, legacyResult, safeResult, assetResult]) {
+      for (const result of [planResult, contactResult, recipientResult, grantResult, storyResult, legacyResult, safeResult, assetResult, notificationResult]) {
         if (result.error) throw result.error
       }
       if (planResult.data) setPlan(planResult.data as Plan)
       setContacts((contactResult.data ?? []) as Contact[])
       setRecipients((recipientResult.data ?? []) as Recipient[])
       setGrants((grantResult.data ?? []) as Array<{ recipient_id: string; content_type: string; content_id: string }>)
+      setNotifications((notificationResult.data ?? []) as Notification[])
       setItems([
         ...((storyResult.data ?? []).map(item => ({ id: item.id, title: item.title, content_type: 'story' as const, detail: 'Story' }))),
         ...((legacyResult.data ?? []).map(item => ({ id: item.id, title: item.title, content_type: 'legacy_entry' as const, detail: 'Legacy entry' }))),
@@ -136,6 +140,13 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
     } finally { setSaving(false) }
   }
 
+  async function markNotificationRead(id: string) {
+    if (!supabase) return
+    const { error: markError } = await supabase.rpc('mark_legacy_access_notification_read', { p_notification_id: id })
+    if (markError) { setError(markError.message); return }
+    setNotifications(current => current.map(item => item.id === id ? { ...item, read_at: new Date().toISOString() } : item))
+  }
+
   function toggleItem(item: Item) {
     const key = item.content_type + ':' + item.id
     setSelectedContent(current => current.includes(key) ? current.filter(value => value !== key) : current.length >= 100 ? current : [...current, key])
@@ -152,6 +163,14 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}
       {message && <p className="form-feedback form-success" role="status">{message}</p>}
 
+      {notifications.length > 0 && <section className="legacy-access-card legacy-notifications-card">
+        <h3><BellRing size={18} /> Activity and alerts</h3>
+        {notifications.map(item => <article className={item.read_at ? 'legacy-notification read' : 'legacy-notification'} key={item.id}>
+          <div><strong>{item.title}</strong><p>{item.body}</p><small>{new Date(item.created_at).toLocaleString()}</small></div>
+          {!item.read_at && <button type="button" className="text-button" onClick={() => void markNotificationRead(item.id)}>Mark read</button>}
+        </article>)}
+      </section>}
+
       <form className="legacy-access-card" onSubmit={savePlan}>
         <h3><CalendarClock size={18} /> Access triggers</h3>
         <label className="legacy-access-option">
@@ -165,7 +184,7 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
         {plan.inactivity_enabled && <div className="legacy-inactivity-setting">
           <label htmlFor="legacy-inactivity-days">Inactivity period</label>
           <div><input id="legacy-inactivity-days" type="number" min={1} max={7} step={1} value={plan.inactivity_days} onChange={event => setPlan(current => ({ ...current, inactivity_days: Math.min(7, Math.max(1, Number(event.target.value) || 1)) }))} /><span>days (24 hours to 7 days)</span></div>
-          <p>SOOULL will send reminders and provide time to respond. Reaching this period does not release your content.</p>
+          <p>SOOULL creates an in-app warning when this period elapses, then allows a further 24-hour response window before a verification request can be created. No content is released automatically.</p>
         </div>}
         <div className="legacy-access-save-row">
           <button className="dashboard-primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save trigger settings'}</button>

@@ -72,9 +72,14 @@ export function VaultModule({ userId }: { userId: string }) {
     return () => {
       const recorder = recorderRef.current
       if (recorder && recorder.state !== 'inactive') {
-        recorder.ondataavailable = null
-        recorder.onstop = null
-        recorder.stop()
+        // Preserve the final dataavailable event and let onstop finish saving
+        // the recording instead of silently discarding it on a tab change.
+        try {
+          recorder.stop()
+          return
+        } catch {
+          // Fall through to stopping the microphone tracks.
+        }
       }
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null

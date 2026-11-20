@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-const cors = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods":"POST, OPTIONS" };
+const cors = { "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") ?? "https://sooull.vercel.app", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods":"POST, OPTIONS", "Vary":"Origin" };
 const json = (status:number, data:Record<string,unknown>) => new Response(JSON.stringify(data), {status,headers:{...cors,"Content-Type":"application/json"}});
 Deno.serve(async (req:Request) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});

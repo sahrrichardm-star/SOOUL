@@ -45,6 +45,7 @@ try {
   assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
   assert.ok(javascript.includes('SOOULL needs to reload.'), 'The application error recovery screen must be bundled.')
   assert.ok(stylesheet.includes('--card-dark') && stylesheet.includes('background: #151a23'), 'High-contrast dark card styling must be bundled.')
+  assert.ok(stylesheet.includes('.member-nav button.active') && stylesheet.includes('background: #090d13'), 'Selected navigation must remain visibly dark.')
 
   const manifestResponse = await fetch(new URL('/manifest.webmanifest', host))
   assert.equal(manifestResponse.status, 200, 'PWA manifest must be available.')

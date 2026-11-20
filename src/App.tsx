@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import AdminDashboard from './AdminDashboard'
 import {
   ArrowLeft, ArrowUpRight, BookHeart, BookOpen, CalendarDays, Download, Heart, Infinity, LockKeyhole,
-  Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, Users, X,
+  KeyRound, Mail, Pencil, Plus, Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, Users, X,
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 const LegacyModule = lazy(() => import('./PrivateCollections').then(module => ({ default: module.LegacyModule })))
@@ -98,6 +98,21 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
     })
     if (authError) {
       setError(authError.message)
+      setLoading(false)
+    }
+  }
+
+  async function handlePasskeySignIn() {
+    if (!supabase || loading) return
+    setLoading(true); setError(''); setMessage('')
+    try {
+      const { data, error: passkeyError } = await supabase.auth.signInWithPasskey()
+      if (passkeyError) throw passkeyError
+      if (!data.user) throw new Error('Passkey sign-in did not return an account.')
+      onAuthenticated(data.user)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Passkey sign-in failed. Try your email and password instead.')
+    } finally {
       setLoading(false)
     }
   }
@@ -212,6 +227,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
           </button>
           <div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div>
         </div>}
+        {mode === 'signin' && <button className="auth-submit passkey-auth-button" type="button" onClick={() => void handlePasskeySignIn()} disabled={loading}><KeyRound size={17} /> {loading ? 'Waiting for passkey…' : 'Sign in with a passkey'}</button>}
         <form className="auth-form" onSubmit={handleSubmit}>
           {mode === 'signup' && <>
             <div className="auth-name-grid">
@@ -539,6 +555,29 @@ function AccountSettings({ user, onNameSaved, onExportBackup, onRestoreFile, exp
   const [mfaQr, setMfaQr] = useState('')
   const [mfaSecret, setMfaSecret] = useState('')
   const [mfaCode, setMfaCode] = useState('')
+  const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at?: string; last_used_at?: string }>>([])
+  const [passkeyLoading, setPasskeyLoading] = useState(true)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [passkeyError, setPasskeyError] = useState('')
+  const [passkeyMessage, setPasskeyMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadPasskeys() {
+      if (!supabase) { setPasskeyLoading(false); return }
+      try {
+        const { data, error } = await supabase.auth.passkey.list()
+        if (error) throw error
+        if (active) setPasskeys(data ?? [])
+      } catch (caught) {
+        if (active) setPasskeyError(caught instanceof Error ? caught.message : 'Unable to load passkeys.')
+      } finally {
+        if (active) setPasskeyLoading(false)
+      }
+    }
+    void loadPasskeys()
+    return () => { active = false }
+  }, [user.id])
 
   useEffect(() => {
     let active = true
@@ -600,6 +639,55 @@ function AccountSettings({ user, onNameSaved, onExportBackup, onRestoreFile, exp
     setMfaBusy(false)
   }
 
+  async function registerPasskey() {
+    if (!supabase || passkeyBusy) return
+    setPasskeyBusy(true); setPasskeyError(''); setPasskeyMessage('')
+    try {
+      const { data, error } = await supabase.auth.registerPasskey()
+      if (error) throw error
+      const { data: list, error: listError } = await supabase.auth.passkey.list()
+      if (listError) throw listError
+      setPasskeys(list ?? [])
+      setPasskeyMessage('Passkey registered on this device or password manager.')
+    } catch (caught) {
+      setPasskeyError(caught instanceof Error ? caught.message : 'Unable to register a passkey. Check that passkeys are enabled for SOOULL.')
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
+
+  async function renamePasskey(passkeyId: string, currentName: string) {
+    if (!supabase || passkeyBusy) return
+    const friendlyName = window.prompt('Name this passkey (for example, Personal iPhone or Work laptop):', currentName)
+    if (!friendlyName?.trim()) return
+    setPasskeyBusy(true); setPasskeyError(''); setPasskeyMessage('')
+    try {
+      const { error } = await supabase.auth.passkey.update({ passkeyId, friendlyName: friendlyName.trim().slice(0, 120) })
+      if (error) throw error
+      const { data, error: listError } = await supabase.auth.passkey.list()
+      if (listError) throw listError
+      setPasskeys(data ?? [])
+      setPasskeyMessage('Passkey name updated.')
+    } catch (caught) {
+      setPasskeyError(caught instanceof Error ? caught.message : 'Unable to rename this passkey.')
+    } finally { setPasskeyBusy(false) }
+  }
+
+  async function removePasskey(passkeyId: string) {
+    if (!supabase || passkeyBusy || !window.confirm('Remove this passkey? You may no longer be able to sign in from that device.')) return
+    setPasskeyBusy(true); setPasskeyError(''); setPasskeyMessage('')
+    try {
+      const { error } = await supabase.auth.passkey.delete({ passkeyId })
+      if (error) throw error
+      const { data, error: listError } = await supabase.auth.passkey.list()
+      if (listError) throw listError
+      setPasskeys(data ?? [])
+      setPasskeyMessage('Passkey removed.')
+    } catch (caught) {
+      setPasskeyError(caught instanceof Error ? caught.message : 'Unable to remove this passkey.')
+    } finally { setPasskeyBusy(false) }
+  }
+
   async function updateEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || emailLoading) return
@@ -655,6 +743,19 @@ function AccountSettings({ user, onNameSaved, onExportBackup, onRestoreFile, exp
       <div className="collection-heading">
         <div><span className="eyebrow">MEMBER PROFILE</span><h2>Account settings</h2><p>Manage the email address and password used to access your SOOULL account.</p></div>
       </div>
+      <section className="account-mfa-card account-passkey-card">
+        <div className="account-settings-icon"><KeyRound size={19} /></div>
+        <h3>Passkeys</h3>
+        <p>Sign in with a device passkey using Face ID, fingerprint, Windows Hello or a compatible security key. Your biometric data stays with your device.</p>
+        {passkeyLoading ? <p className="account-settings-note">Checking registered passkeys…</p> : passkeys.length ? passkeys.map((item) => <div className="mfa-factor-row" key={item.id}>
+          <span><KeyRound size={15} /> {item.friendly_name || 'Registered passkey'}{item.last_used_at ? ' · Last used ' + new Date(item.last_used_at).toLocaleDateString() : ''}</span>
+          <div className="passkey-actions"><button type="button" className="text-button" disabled={passkeyBusy} onClick={() => void renamePasskey(item.id, item.friendly_name || 'SOOULL passkey')}>Rename</button><button type="button" className="account-delete-button" disabled={passkeyBusy} onClick={() => void removePasskey(item.id)}>Remove</button></div>
+        </div>) : <p className="account-settings-note">No passkeys are registered for this account yet.</p>}
+        {passkeyError && <p className="form-feedback form-error" role="alert">{passkeyError}</p>}
+        {passkeyMessage && <p className="form-feedback form-success" role="status">{passkeyMessage}</p>}
+        <button className="dashboard-primary" type="button" disabled={passkeyBusy} onClick={() => void registerPasskey()}><KeyRound size={16} /> {passkeyBusy ? 'Waiting for device…' : 'Create a passkey'}</button>
+        <p className="account-settings-note">Passkey sign-in is experimental in Supabase and must first be enabled in the Supabase Auth Passkeys settings. Keep your password or another recovery method until you have tested a second device.</p>
+      </section>
       <section className="account-mfa-card">
         <div className="account-settings-icon"><ShieldCheck size={19} /></div>
         <h3>Two-factor authentication</h3>

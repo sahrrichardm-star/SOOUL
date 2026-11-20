@@ -5,6 +5,8 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
+type AdminUser = { id: string; email: string; name: string; created_at: string; last_sign_in_at: string | null; email_confirmed_at: string | null; banned_until: string | null }
+
 type AdminMetrics = {
   registered_users: number
   new_users_7d: number
@@ -35,6 +37,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshedAt, setRefreshedAt] = useState('')
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers'>('overview')
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [userPage, setUserPage] = useState(1)
+  const [usersHaveMore, setUsersHaveMore] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -57,6 +65,27 @@ export default function AdminDashboard() {
       setMetrics(null)
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const loadUsers = useCallback(async (page: number) => {
+    if (!supabase) return
+    setUsersLoading(true)
+    setError('')
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('admin-overview', {
+        method: 'POST',
+        body: { action: 'users', page, perPage: 25 },
+      })
+      if (invokeError) throw invokeError
+      if (data?.error) throw new Error(String(data.error))
+      setUsers((data?.users ?? []) as AdminUser[])
+      setUserPage(Number(data?.page ?? page))
+      setUsersHaveMore(Boolean(data?.hasMore))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to load customer accounts.')
+    } finally {
+      setUsersLoading(false)
     }
   }, [])
 

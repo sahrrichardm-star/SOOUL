@@ -26,6 +26,8 @@ try {
   assert.match(pageResponse.headers.get('content-type') || '', /text\/html/i)
   const html = await pageResponse.text()
   assert.match(html, /SOOULL — Your life\. Your legacy\./, 'Page title must be present.')
+  assert.match(html, /viewport-fit=cover/, 'The mobile viewport must support safe-area insets.')
+  assert.match(html, /apple-mobile-web-app-capable/, 'iOS home-screen app metadata must be present.')
 
   const assets = [...html.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+)"/g)].map((match) => match[1])
   assert.ok(assets.some((path) => path.endsWith('.js')), 'The built application JavaScript must be linked.')

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readdir } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 
 const host = 'http://127.0.0.1:4173'
@@ -43,7 +43,8 @@ try {
   const stylesheet = [...assetContents.entries()].filter(([path]) => path.endsWith('.css')).map(([, body]) => body).join('\\n')
   assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
   assert.ok(javascript.includes('Phone number (optional)'), 'Phone number must remain optional in account forms.')
-  assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
+  const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  assert.ok(appSource.includes('isValidInternationalPhone(normalizedPhone)') && appSource.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
   const builtAssetNames = await readdir(new URL('../dist/assets/', import.meta.url))
   const vaultChunkName = builtAssetNames.find((name) => /^VaultModule-[A-Za-z0-9_-]+\\.js$/.test(name))
   assert.ok(vaultChunkName, 'The lazy-loaded private assets module must be built.')

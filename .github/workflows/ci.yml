@@ -14,37 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  bootstrap-lockfile:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Commit the npm dependency lockfile once
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Generate and commit package-lock.json when missing
-        run: |
-          if [ -f package-lock.json ]; then
-            echo "package-lock.json already exists."
-            exit 0
-          fi
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: add npm dependency lockfile"
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
-
   security-and-build:
     name: Dependency audit, TypeScript and production smoke tests
     runs-on: ubuntu-latest
@@ -59,14 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-
-      # Generate a temporary lockfile for PRs until the one-time main-branch
-      # bootstrap job commits the canonical lockfile.
-      - name: Generate a CI dependency lockfile when missing
-        run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          fi
 
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund

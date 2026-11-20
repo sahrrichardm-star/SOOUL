@@ -112,12 +112,12 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
     }
     if (mode === 'signup') {
       const normalizedPhone = normalizeInternationalPhone(phone)
-      if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth) {
-        setError('Enter your first name, last name, residential address, country, phone number and date of birth.')
+      if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth) {
+        setError('Enter your first name, last name, residential address, country and date of birth.')
         return
       }
-      if (!isValidInternationalPhone(normalizedPhone)) {
-        setError('Enter your phone number in international format, including + and country calling code (for example, +232...).')
+      if (normalizedPhone && !isValidInternationalPhone(normalizedPhone)) {
+        setError('If you add a phone number, use international format with + and the full country calling code (for example, +232...).')
         return
       }
       if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
@@ -149,7 +149,7 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
               full_name: [firstName, middleName, lastName].map((part) => part.trim()).filter(Boolean).join(' '),
               residential_address: address.trim(),
               country: country.trim(),
-              phone: phone.replace(/[\s().-]/g, ''),
+              phone: normalizedPhone || '',
               date_of_birth: dateOfBirth,
             },
           },
@@ -222,9 +222,9 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
             <input className="story-field" id="auth-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="House number, street, town/city" />
             <label htmlFor="auth-country">Country</label>
             <input className="story-field" id="auth-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
-            <label htmlFor="auth-phone">Phone number (international format)</label>
-            <input className="story-field" id="auth-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="auth-phone-help" />
-            <p className="account-settings-note" id="auth-phone-help">Start with +, then your country calling code and full number. Examples: +232 (Sierra Leone), +1 (US/Canada), +44 (UK). Use the worldwide international format, not a local area code.</p>
+            <label htmlFor="auth-phone">Phone number (optional)</label>
+            <input className="story-field" id="auth-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="auth-phone-help" />
+            <p className="account-settings-note" id="auth-phone-help">Optional. If provided, start with +, then your country calling code and full number. Examples: +232 (Sierra Leone), +1 (US/Canada), +44 (UK).</p>
             <label htmlFor="auth-dob">Date of birth</label>
             <input className="story-field" id="auth-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
           </>}
@@ -302,11 +302,11 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
     if (!supabase || saving) return
     const normalizedPhone = normalizeInternationalPhone(phone)
     if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth) {
-      setError('Complete every required field before continuing.')
+      setError('Complete your name, residential address, country and date of birth before continuing.')
       return
     }
-    if (!isValidInternationalPhone(normalizedPhone)) {
-      setError('Enter your phone number in international format, including + and country calling code.')
+    if (normalizedPhone && !isValidInternationalPhone(normalizedPhone)) {
+      setError('If you add a phone number, use international format with + and the full country calling code.')
       return
     }
     if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
@@ -322,7 +322,7 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
         last_name: lastName.trim(),
         residential_address: address.trim(),
         country: country.trim(),
-        phone: normalizedPhone,
+        phone: normalizedPhone || '',
         date_of_birth: dateOfBirth,
         updated_at: new Date().toISOString(),
       }
@@ -353,7 +353,7 @@ function ProfileCompletion({ user, onComplete, onSignOut }: { user: User; onComp
       </div>
       <label htmlFor="complete-address">Residential address</label><input className="story-field" id="complete-address" autoComplete="street-address" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} />
       <label htmlFor="complete-country">Country</label><input className="story-field" id="complete-country" autoComplete="country-name" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" />
-      <label htmlFor="complete-phone">Phone number (international format)</label><input className="story-field" id="complete-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="complete-phone-help" /><p className="account-settings-note" id="complete-phone-help">Start with +, then your country calling code and full number. Examples: +232 (Sierra Leone), +1 (US/Canada), +44 (UK). Use the worldwide international format, not a local area code.</p>
+      <label htmlFor="complete-phone">Phone number (optional)</label><input className="story-field" id="complete-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" aria-describedby="complete-phone-help" /><p className="account-settings-note" id="complete-phone-help">Optional. If provided, use + and your full country calling code, for example +232, +1 or +44.</p>
       <label htmlFor="complete-dob">Date of birth</label><input className="story-field" id="complete-dob" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}
       <button className="auth-submit" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save and continue'}<ArrowUpRight size={17} /></button>
@@ -413,12 +413,12 @@ function ProfileSettings({ user, onNameSaved }: { user: User; onNameSaved: (firs
     event.preventDefault()
     if (!supabase || saving) return
     const normalizedPhone = normalizeInternationalPhone(phone)
-    if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !normalizedPhone || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
-      setError('Enter a valid name, address, country, phone number and date of birth.')
+    if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth || dateOfBirth > new Date().toISOString().slice(0, 10)) {
+      setError('Enter a valid name, address, country and date of birth.')
       return
     }
-    if (!isValidInternationalPhone(normalizedPhone)) {
-      setError('Enter your phone number in international format, including + and country calling code.')
+    if (normalizedPhone && !isValidInternationalPhone(normalizedPhone)) {
+      setError('If you add a phone number, use international format with + and the full country calling code.')
       return
     }
     setSaving(true); setError(''); setMessage('')
@@ -430,7 +430,7 @@ function ProfileSettings({ user, onNameSaved }: { user: User; onNameSaved: (firs
         last_name: lastName.trim(),
         residential_address: address.trim(),
         country: country.trim(),
-        phone: normalizedPhone,
+        phone: normalizedPhone || '',
         date_of_birth: dateOfBirth,
         avatar_path: avatarPath || null,
         updated_at: new Date().toISOString(),
@@ -496,7 +496,7 @@ function ProfileSettings({ user, onNameSaved }: { user: User; onNameSaved: (firs
       <label>Last name<input className="story-field" maxLength={80} required value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
       <label>Residential address<input className="story-field" maxLength={300} required value={address} onChange={(event) => setAddress(event.target.value)} /></label>
       <label>Country<input className="story-field" maxLength={100} required value={country} onChange={(event) => setCountry(event.target.value)} placeholder="Country of residence" /></label>
-      <label>Phone number<input className="story-field" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" /></label>
+      <label>Phone number (optional)<input className="story-field" type="tel" autoComplete="tel" inputMode="tel" maxLength={24} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+232XXXXXXXX" /></label>
       <label>Date of birth<input className="story-field" type="date" max={new Date().toISOString().slice(0, 10)} required value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
       <p className="account-settings-note">Your date of birth, address, country and phone number are private account details. Only your authenticated account can access this profile.</p>
       {error && <p className="form-feedback form-error" role="alert">{error}</p>}
@@ -1595,7 +1595,7 @@ function ProfileGate({ user, onComplete, onSignOut }: { user: User; onComplete: 
         .select('first_name,last_name,residential_address,country,phone,date_of_birth')
         .eq('id', user.id).maybeSingle()
       if (!active) return
-      setComplete(!error && Boolean(data?.first_name?.trim() && data?.last_name?.trim() && data?.residential_address?.trim() && data?.country?.trim() && data?.phone?.trim() && data?.date_of_birth))
+      setComplete(!error && Boolean(data?.first_name?.trim() && data?.last_name?.trim() && data?.residential_address?.trim() && data?.country?.trim() && data?.date_of_birth))
     }
     void check()
     return () => { active = false }

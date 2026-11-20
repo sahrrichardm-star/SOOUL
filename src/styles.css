@@ -602,3 +602,36 @@ button:active,
   cursor: pointer;
 }
 .app-error-card button:focus-visible { outline: 2px solid #f0c46c; outline-offset: 3px; }
+
+
+/* Authentication and editor dialogs follow the same dark-card language. */
+.auth-panel {
+  color: #f3f5f8;
+  background: #151a23;
+  border-color: #343d4b;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .28);
+}
+.auth-panel :is(h1,h2,h3,h4,strong,small,label,legend,li) { color: #f3f5f8; }
+.auth-panel :is(p,.auth-intro,.auth-switches,.account-settings-note) { color: #c0c7d2; }
+.auth-panel .eyebrow,
+.auth-panel a,
+.auth-panel .text-button { color: #f0c46c; }
+.auth-panel button:not(.auth-submit) { color: #f3f5f8; }
+.auth-panel .auth-submit { color: #17120a; }
+.auth-panel .auth-input-wrap {
+  border-color: #465163;
+  background: #0f141d;
+}
+.auth-panel .auth-input-wrap input { color: #f3f5f8; }
+.auth-panel .auth-input-wrap input::placeholder { color: #a0a9b7; }
+
+.persona-chat-history {
+  border: 1px solid var(--card-dark-border);
+  border-radius: 14px;
+  background: #10151e;
+}
+.vault-check-row {
+  border-color: var(--card-dark-border);
+  background: var(--card-dark-raised);
+  color: var(--card-dark-text);
+}

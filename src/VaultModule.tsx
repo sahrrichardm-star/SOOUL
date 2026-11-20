@@ -200,6 +200,9 @@ export function VaultModule({ userId }: { userId: string }) {
       recorder.start()
       setRecording(true)
     } catch (caught) {
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+      setRecording(false)
       setError(caught instanceof Error ? caught.message : 'Microphone access was not available.')
     }
   }

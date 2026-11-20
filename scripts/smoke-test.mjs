@@ -43,6 +43,7 @@ try {
   assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
   assert.ok(javascript.includes('Phone number (optional)'), 'Phone number must remain optional in account forms.')
   assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
+  assert.ok(javascript.includes('text/csv') && javascript.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), 'Bank statement and spreadsheet formats must be supported.')
   assert.ok(javascript.includes('SOOULL needs to reload.'), 'The application error recovery screen must be bundled.')
   assert.ok(stylesheet.includes('--card-dark') && stylesheet.includes('#151a23'), 'High-contrast dark card styling must be bundled.')
   assert.ok(stylesheet.includes('.member-nav button.active') && stylesheet.includes('#090d13'), 'Selected navigation must remain visibly dark.')

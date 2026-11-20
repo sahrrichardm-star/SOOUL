@@ -1103,7 +1103,6 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const assetRaw = rows(collections.assets, 'assets')
       const walletRaw = rows(collections.wallet, 'wallet records')
       const trustedRaw = rows(collections.trusted_people, 'trusted people')
-      const consentRaw = rows(ai.consents, 'AI Legacy consent records')
       const sourceRaw = rows(ai.approved_sources, 'AI Legacy approved sources')
       const conversationRaw = rows(ai.conversations, 'AI Legacy conversations')
       const messageRaw = rows(ai.messages, 'AI Legacy messages', 10000)
@@ -1218,14 +1217,9 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
               is_enabled: sameAccount && r.is_enabled === true, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
             }]
           })() : []
-      // Consent is account-specific. Never transfer active AI processing consent to a different account.
-      const consents = (sameAccount ? consentRaw : []).map((r) => ({
-        id: uuid(r.id, 'AI Legacy consent records'), user_id: user.id,
-        consent_type: ['text_persona','voice_processing','voice_replication','likeness_generation'].includes(String(r.consent_type)) ? r.consent_type : 'text_persona',
-        policy_version: str(r.policy_version, 'AI Legacy consent records', 80, true),
-        granted_at: stamp(r.granted_at), revoked_at: typeof r.revoked_at === 'string' ? stamp(r.revoked_at) : null,
-        created_at: stamp(r.created_at),
-      }))
+      // Consent is never imported or overwritten by a data restore. In particular,
+      // an older backup must never reverse a user's later consent revocation.
+      const consents: Record<string, unknown>[] = []
       const validSourceIds = new Set([...stories, ...legacy].map((r) => r.id))
       const sources = sourceRaw.filter((r) => validSourceIds.has(String(r.source_id))).map((r) => ({
         id: uuid(r.id, 'AI Legacy approved sources'), user_id: user.id,
@@ -1248,7 +1242,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRaw.length +
         consents.length + sources.length + conversations.length + messages.length + personaProfile.length
-      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent will only carry over when restoring to the same account; otherwise you must consent again. This cannot be automatically rolled back.')) {
+      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent is never changed by a restore; any new account must grant consent again. This cannot be automatically rolled back.')) {
         setRestoreProgress('Restore cancelled.')
         return
       }

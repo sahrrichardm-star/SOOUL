@@ -1235,10 +1235,14 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       // Consent is never imported or overwritten by a data restore. In particular,
       // an older backup must never reverse a user's later consent revocation.
       const consents: Record<string, unknown>[] = []
-      const validSourceIds = new Set([...stories, ...legacy].map((r) => r.id))
-      const sources = sourceRaw.filter((r) => validSourceIds.has(String(r.source_id))).map((r) => ({
+      const validStoryIds = new Set(stories.map((r) => r.id))
+      const validLegacyIds = new Set(legacy.map((r) => r.id))
+      const sources = sourceRaw.filter((r) =>
+        (r.source_type === 'story' && validStoryIds.has(String(r.source_id))) ||
+        (r.source_type === 'legacy_entry' && validLegacyIds.has(String(r.source_id)))
+      ).map((r) => ({
         id: uuid(r.id, 'AI Legacy approved sources'), user_id: user.id,
-        source_type: r.source_type === 'story' || r.source_type === 'legacy_entry' ? r.source_type : 'story',
+        source_type: r.source_type,
         source_id: uuid(r.source_id, 'AI Legacy approved sources'), is_enabled: r.is_enabled !== false,
         created_at: stamp(r.created_at),
       }))

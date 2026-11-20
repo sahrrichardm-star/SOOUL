@@ -1079,6 +1079,8 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const { backup, files } = readSooullBackupZip(await file.arrayBuffer())
       const collections = backup.collections && typeof backup.collections === 'object' ? backup.collections as Record<string, unknown> : {}
       const ai = backup.ai_legacy && typeof backup.ai_legacy === 'object' ? backup.ai_legacy as Record<string, unknown> : {}
+      const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
+      const sameAccount = account.id === user.id
       const rows = (value: unknown, label: string, limit = 50000): Record<string, unknown>[] => {
         if (value == null) return []
         if (!Array.isArray(value) || value.length > limit) throw new Error('The ' + label + ' section is invalid or exceeds the restore limit.')
@@ -1154,11 +1156,16 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const allowedMime = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
       const pendingAssets: { row: Record<string, unknown>; bytes: Uint8Array; name: string; mime: string; existingPath: string }[] = []
       const validAssetIds = new Set(assetRaw.map((r) => uuid(r.id, 'assets')))
-      const existingAssetResult = assetRaw.length
-        ? await supabase.from('assets').select('id,storage_path').in('id', [...validAssetIds])
-        : { data: [], error: null }
-      if (existingAssetResult.error) throw existingAssetResult.error
-      const existingAssetPaths = new Map((existingAssetResult.data ?? []).map((r) => [r.id, r.storage_path]))
+      const existingAssetPaths = new Map<string, string>()
+      if (sameAccount && validAssetIds.size) {
+        const ids = [...validAssetIds]
+        for (let offset = 0; offset < ids.length; offset += 500) {
+          const { data: existingRows, error: existingError } = await supabase.from('assets')
+            .select('id,storage_path').eq('user_id', user.id).in('id', ids.slice(offset, offset + 500))
+          if (existingError) throw existingError
+          for (const existing of existingRows ?? []) existingAssetPaths.set(existing.id, existing.storage_path)
+        }
+      }
       let aggregateBytes = 0
       for (let index = 0; index < assetRaw.length; index += 1) {
         const r = assetRaw[index]
@@ -1187,7 +1194,6 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         })
       }
 
-      const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
       const profileRaw = account.profile && typeof account.profile === 'object' ? account.profile as Record<string, unknown> : null
       let restoredAvatarPath: string | null = null
       let pendingAvatar: { bytes: Uint8Array; name: string; mime: string } | null = null

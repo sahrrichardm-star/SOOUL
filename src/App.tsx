@@ -977,7 +977,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         application: 'SOOULL',
         format_version: 4,
         exported_at: new Date().toISOString(),
-        account: { email: user.email ?? null, profile: profileResult.data ?? null },
+        account: { id: user.id, email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
           stories: storyResult.data ?? [],
           legacy: legacyResult.data ?? [],
@@ -1175,6 +1175,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       }
 
       const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
+      const sameAccount = account.id === user.id
       const profileRaw = account.profile && typeof account.profile === 'object' ? account.profile as Record<string, unknown> : null
       let restoredAvatarPath: string | null = null
       let pendingAvatar: { bytes: Uint8Array; name: string; mime: string } | null = null
@@ -1214,10 +1215,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
               display_name: str(r.display_name, 'AI Legacy profile', 120),
               biography: str(r.biography, 'AI Legacy profile', 5000),
               response_style: str(r.response_style, 'AI Legacy profile', 120) || 'warm and thoughtful',
-              is_enabled: r.is_enabled === true, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+              is_enabled: sameAccount && r.is_enabled === true, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
             }]
           })() : []
-      const consents = consentRaw.map((r) => ({
+      // Consent is account-specific. Never transfer active AI processing consent to a different account.
+      const consents = (sameAccount ? consentRaw : []).map((r) => ({
         id: uuid(r.id, 'AI Legacy consent records'), user_id: user.id,
         consent_type: ['text_persona','voice_processing','voice_replication','likeness_generation'].includes(String(r.consent_type)) ? r.consent_type : 'text_persona',
         policy_version: str(r.policy_version, 'AI Legacy consent records', 80, true),
@@ -1246,7 +1248,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRaw.length +
         consents.length + sources.length + conversations.length + messages.length + personaProfile.length
-      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. This cannot be automatically rolled back.')) {
+      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent will only carry over when restoring to the same account; otherwise you must consent again. This cannot be automatically rolled back.')) {
         setRestoreProgress('Restore cancelled.')
         return
       }

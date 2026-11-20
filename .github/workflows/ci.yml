@@ -9,18 +9,37 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sooull-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: TypeScript and Vite production build
+  security-and-build:
+    name: Dependency audit, TypeScript and production build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+          cache: npm
+
+      # The repository currently has no committed lockfile. Generate one in CI
+      # from the exact direct dependency versions, then use npm ci for the build.
+      - name: Generate a CI dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
       - name: Build production bundle
         run: npm run build

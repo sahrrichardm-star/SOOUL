@@ -11,6 +11,7 @@ const SafekeepingModule = lazy(() => import('./PrivateCollections').then(module 
 const VaultModule = lazy(() => import('./VaultModule').then(module => ({ default: module.VaultModule })))
 const PersonaModule = lazy(() => import('./PersonaModule').then(module => ({ default: module.PersonaModule })))
 const TrustedPeopleModule = lazy(() => import('./TrustedPeopleModule').then(module => ({ default: module.TrustedPeopleModule })))
+const LegacyAccessModule = lazy(() => import('./LegacyAccessModule'))
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'update-password'
 type StoryCategory = 'life' | 'family' | 'milestones' | 'lessons' | 'other'

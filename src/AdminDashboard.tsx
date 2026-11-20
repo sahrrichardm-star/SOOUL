@@ -127,6 +127,11 @@ export default function AdminDashboard() {
 
       {error && <section className="admin-alert" role="alert"><ShieldAlert size={18} /><div><strong>Administrator data unavailable</strong><p>{error}</p></div></section>}
 
+      <nav className="admin-nav-tabs" aria-label="Administration sections">
+        <button type="button" className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>Overview</button>
+        {role !== "analytics_admin" && <button type="button" className={activeTab === "customers" ? "active" : ""} onClick={() => { setActiveTab("customers"); if (users.length === 0) void loadUsers(1) }}>Customers</button>}
+      </nav>
+
       <section className="admin-metric-grid" aria-label="Platform metrics">
         {cards.map(({ label, value, detail, icon: Icon }) => (
           <article className="admin-metric-card" key={label}>
@@ -151,6 +156,32 @@ export default function AdminDashboard() {
         </article>
       </section>
 
+      {activeTab === "customers" && role !== "analytics_admin" && <section className="admin-customers-panel">
+        <div className="admin-panel-heading"><Users size={18} /><h2>Customer accounts</h2></div>
+        <p>Account metadata only. Private stories, documents, voice recordings and AI conversations are not shown here.</p>
+        <input className="admin-search-input" type="search" value={userSearch} onChange={event => setUserSearch(event.target.value)} placeholder="Filter this page by name or email" aria-label="Filter customers" />
+        {usersLoading ? <p className="admin-status-note">Loading customer accounts…</p> : <div className="admin-table-wrap">
+          <table className="admin-users-table">
+            <thead><tr><th>Customer</th><th>Registered</th><th>Last sign-in</th><th>Email</th><th>Account status</th></tr></thead>
+            <tbody>{users.filter(item => (item.name + " " + item.email).toLowerCase().includes(userSearch.toLowerCase())).map(item => {
+              const suspended = item.banned_until && new Date(item.banned_until).getTime() > Date.now()
+              return <tr key={item.id}>
+                <td><strong>{item.name || "Name not completed"}</strong><small>{item.email}</small></td>
+                <td>{new Date(item.created_at).toLocaleDateString()}</td>
+                <td>{item.last_sign_in_at ? new Date(item.last_sign_in_at).toLocaleDateString() : "Never"}</td>
+                <td><span className={item.email_confirmed_at ? "admin-status-good" : "admin-status-pending"}>{item.email_confirmed_at ? "Verified" : "Unverified"}</span></td>
+                <td><span className={suspended ? "admin-status-pending" : "admin-status-good"}>{suspended ? "Suspended" : "Active"}</span></td>
+              </tr>
+            })}</tbody>
+          </table>
+          {!users.length && <p className="admin-status-note">No customer accounts were returned for this page.</p>}
+        </div>}
+        <div className="admin-pagination">
+          <button type="button" className="account-secondary-button" disabled={usersLoading || userPage <= 1} onClick={() => void loadUsers(userPage - 1)}>Previous</button>
+          <span>Page {userPage}</span>
+          <button type="button" className="account-secondary-button" disabled={usersLoading || !usersHaveMore} onClick={() => void loadUsers(userPage + 1)}>Next</button>
+        </div>
+      </section>}
       <footer className="admin-footer">
         <span>SOOULL · ADMINISTRATION</span>
         <span>Privileged actions must be audited. Customer memories remain private.</span>

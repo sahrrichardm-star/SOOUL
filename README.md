@@ -50,7 +50,7 @@ Required Vercel Production environment variables:
 
 After changing Vercel environment variables, redeploy so the Vite client bundle is rebuilt.
 
-The repository also has a GitHub Actions workflow at `.github/workflows/ci.yml` that generates a CI lockfile, installs dependencies, runs `npm audit` and builds the production bundle.
+The repository commits `package-lock.json` for reproducible dependency installs. GitHub Actions at `.github/workflows/ci.yml` uses `npm ci`, runs `npm audit` and builds plus smoke-tests the production bundle.
 
 ## Supabase services
 

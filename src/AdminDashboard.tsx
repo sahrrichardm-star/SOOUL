@@ -17,6 +17,7 @@ type AdminMetrics = {
   wallet_records: number
   enabled_personas: number
   trusted_people_records: number
+  legacy_access_requests_pending: number
 }
 
 const number = (value: unknown) => new Intl.NumberFormat().format(Number(value ?? 0))
@@ -70,6 +71,8 @@ export default function AdminDashboard() {
     { label: 'Storage used', value: bytes(metrics?.storage_bytes), detail: 'Based on registered asset sizes', icon: Database },
     { label: 'Wallet records', value: number(metrics?.wallet_records), detail: 'Private customer references', icon: Wallet },
     { label: 'Active AI personas', value: number(metrics?.enabled_personas), detail: 'Enabled persona profiles', icon: BrainCircuit },
+    { label: 'Trusted people', value: number(metrics?.trusted_people_records), detail: 'Owner-managed trusted contacts', icon: Users },
+    { label: 'Pending legacy requests', value: number(metrics?.legacy_access_requests_pending), detail: 'Awaiting independent verification', icon: ShieldAlert },
   ]
 
   return (

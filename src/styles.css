@@ -635,3 +635,31 @@ button:active,
   background: var(--card-dark-raised);
   color: var(--card-dark-text);
 }
+
+
+/* Remaining feature, metric and security panels use the same dark card surface. */
+.pillar-card,
+.dashboard-stat,
+.mfa-factor-row,
+.vault-security-note,
+.safekeeping-notice {
+  color: var(--card-dark-text);
+  background: var(--card-dark);
+  border-color: var(--card-dark-border);
+}
+.pillar-card :is(h1,h2,h3,h4,strong,span),
+.dashboard-stat :is(strong,span),
+.mfa-factor-row :is(span,strong,small),
+.vault-security-note :is(span,strong),
+.safekeeping-notice :is(span,strong,p) {
+  color: var(--card-dark-text);
+}
+.pillar-card p,
+.vault-security-note p { color: var(--card-dark-muted); }
+.safekeeping-notice {
+  border-color: rgba(92, 153, 236, .4);
+  background: #151e2b;
+}
+.safekeeping-notice p { color: #c0cfe3; }
+.safekeeping-notice strong { color: #e1edff; }
+.dashboard-stat > span:last-child { color: var(--card-dark-muted); }

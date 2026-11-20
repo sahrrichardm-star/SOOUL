@@ -507,7 +507,17 @@ function ProfileSettings({ user, onNameSaved }: { user: User; onNameSaved: (firs
   </section>
 }
 
-function AccountSettings({ user, onNameSaved }: { user: User; onNameSaved: (firstName: string) => void }) {
+function AccountSettings({ user, onNameSaved, onExportBackup, onRestoreFile, exporting, restoring, exportProgress, restoreProgress }: {
+  user: User
+  onNameSaved: (firstName: string) => void
+  onExportBackup: () => void
+  onRestoreFile: (event: ChangeEvent<HTMLInputElement>) => void
+  exporting: boolean
+  restoring: boolean
+  exportProgress: string
+  restoreProgress: string
+}) {
+  const restoreInputRef = useRef<HTMLInputElement | null>(null)
   const [email, setEmail] = useState(user.email ?? '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -705,6 +715,16 @@ function AccountSettings({ user, onNameSaved }: { user: User; onNameSaved: (firs
           <p className="account-settings-note">If your security settings require recent authentication, sign out and sign in again before retrying.</p>
         </form>
       </div>
+      <section className="account-backup-card">
+        <div className="collection-heading"><div><span className="eyebrow">DATA PROTECTION</span><h2>Backup &amp; Recovery</h2><p>Keep a secure copy of your SOOULL information and restore a previous SOOULL backup when needed.</p></div></div>
+        <div className="account-backup-actions">
+          <button className="dashboard-primary" type="button" onClick={onExportBackup} disabled={exporting || restoring}><Download size={16} /> {exporting ? 'Preparing backup…' : 'Export ZIP backup'}</button>
+          <button className="account-secondary-button" type="button" onClick={() => restoreInputRef.current?.click()} disabled={exporting || restoring}><Upload size={16} /> {restoring ? 'Restoring…' : 'Restore backup'}</button>
+          <input ref={restoreInputRef} type="file" accept=".zip,application/zip" hidden onChange={onRestoreFile} />
+        </div>
+        {(exportProgress || restoreProgress) && <p className="account-settings-note" role="status">{restoreProgress || exportProgress}</p>}
+        <p className="account-settings-note">Your backup contains private information and uploaded files. Store it securely. Restoration must use a backup belonging to your account.</p>
+      </section>
       <section className="account-danger-zone">
         <div><span className="eyebrow">PERMANENT ACTION</span><h3>Delete your SOOULL account</h3><p>This permanently removes your account, stories, legacy entries, safekeeping records, wallet references, trusted contacts, AI Legacy data, profile photo and private uploaded files. This cannot be undone. Export your data first if you want to keep a copy.</p></div>
         <label htmlFor="delete-account-confirmation">Type DELETE to confirm</label>
@@ -1585,7 +1605,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       {activeSection === 'vault' && <Suspense fallback={<section className="stories-empty">Loading assets and wallet…</section>}><VaultModule userId={user.id} /></Suspense>}
       {activeSection === 'persona' && <Suspense fallback={<section className="stories-empty">Loading AI legacy…</section>}><PersonaModule userId={user.id} /></Suspense>}
       {activeSection === 'trusted' && <Suspense fallback={<section className="stories-empty">Loading trusted people…</section>}><TrustedPeopleModule userId={user.id} /></Suspense>}
-      {activeSection === 'account' && <AccountSettings user={user} onNameSaved={setProfileName} />}
+      {activeSection === 'account' && <AccountSettings user={user} onNameSaved={setProfileName} onExportBackup={() => void exportMyData()} onRestoreFile={restoreMyData} exporting={exporting} restoring={restoring} exportProgress={exportProgress} restoreProgress={restoreProgress} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>
 

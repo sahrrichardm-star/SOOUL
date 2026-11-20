@@ -50,7 +50,7 @@ try {
   const worker = await workerResponse.text()
   assert.match(worker, /sooull-shell-v2/, 'Service worker cache version must be present.')
   assert.match(worker, /\/assets\//, 'Service worker must cache same-origin build assets.')
-  assert.match(worker, /Supabase auth, database,\\s*\\/\\/ Storage and all private account responses are deliberately never cached\\./, 'Service worker must explicitly avoid caching private data.')
+  assert.ok(worker.includes('Supabase auth, database,') && worker.includes('Storage and all private account responses are deliberately never cached.'), 'Service worker must explicitly avoid caching private data.')
 
   const robotsResponse = await fetch(new URL('/robots.txt', host))
   assert.equal(robotsResponse.status, 200, 'robots.txt must be available.')

@@ -1251,7 +1251,14 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         id: uuid(r.id, 'AI Legacy messages'), conversation_id: uuid(r.conversation_id, 'AI Legacy messages'),
         user_id: user.id, role: r.role === 'assistant' ? 'assistant' : 'user',
         content: str(r.content, 'AI Legacy messages', 12000, true),
-        source_refs: Array.isArray(r.source_refs) ? r.source_refs : [], model_id: str(r.model_id, 'AI Legacy messages', 160) || null,
+        source_refs: Array.isArray(r.source_refs) ? r.source_refs.slice(0, 20).flatMap((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+          const ref = item as Record<string, unknown>
+          if (typeof ref.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ref.id)) return []
+          if (!['story','legacy_entry'].includes(String(ref.type)) || typeof ref.title !== 'string') return []
+          return [{ id: ref.id, type: String(ref.type), title: ref.title.slice(0, 160) }]
+        }) : [],
+        model_id: str(r.model_id, 'AI Legacy messages', 160) || null,
         created_at: stamp(r.created_at),
       }))
 

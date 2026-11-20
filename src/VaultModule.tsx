@@ -41,6 +41,7 @@ export function VaultModule({ userId }: { userId: string }) {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const mountedRef = useRef(true)
 
   async function load() {
     if (!supabase) {
@@ -69,7 +70,9 @@ export function VaultModule({ userId }: { userId: string }) {
   useEffect(() => { void load() }, [userId])
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
       const recorder = recorderRef.current
       if (recorder && recorder.state !== 'inactive') {
         // Preserve the final dataavailable event and let onstop finish saving
@@ -170,6 +173,10 @@ export function VaultModule({ userId }: { userId: string }) {
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error('Audio recording is not supported in this browser. Try a current version of Chrome, Edge or Safari.')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
       streamRef.current = stream
       const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find((type) => MediaRecorder.isTypeSupported(type))
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)

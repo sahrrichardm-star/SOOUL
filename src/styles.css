@@ -416,3 +416,144 @@ body :is(input,textarea,select):focus { outline-color: #b88938; }
 .vault-asset-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, 220px); gap: 12px; }
 .vault-asset-toolbar .story-field { width: 100%; min-width: 0; }
 @media (max-width: 620px) { .vault-asset-toolbar { grid-template-columns: 1fr; } }
+
+
+/* Dark, clearly selected interactive surfaces */
+:root {
+  --card-dark: #151a23;
+  --card-dark-raised: #1c2330;
+  --card-dark-border: #343d4b;
+  --card-dark-text: #f3f5f8;
+  --card-dark-muted: #c0c7d2;
+}
+
+/* Keep clickable cards visibly dark instead of flashing to a white surface. */
+.story-card,
+.collection-card,
+.account-settings-card,
+.account-profile-card,
+.account-mfa-card,
+.vault-upload-panel,
+.vault-recording-panel,
+.vault-asset-card,
+.vault-wallet-card,
+.vault-wallet-form,
+.vault-form,
+.persona-chat-panel,
+.persona-chat-history article,
+.coming-card {
+  color: var(--card-dark-text);
+  background: var(--card-dark);
+  border-color: var(--card-dark-border);
+  box-shadow: 0 8px 24px rgba(12, 18, 28, .10);
+}
+
+.story-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.collection-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.account-settings-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.account-profile-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.account-mfa-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-upload-panel :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-recording-panel :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-asset-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-wallet-card :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-wallet-form :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.vault-form :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.persona-chat-panel :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.persona-chat-history article :is(h1,h2,h3,h4,p,span,strong,small,label,li),
+.coming-card :is(h1,h2,h3,h4,p,span,strong,small,label,li) {
+  color: var(--card-dark-text);
+}
+
+.story-card > p,
+.collection-card > p,
+.account-settings-card > p:not(.form-feedback),
+.account-profile-card p,
+.account-mfa-card > p:not(.form-feedback),
+.vault-upload-panel p,
+.vault-recording-panel p,
+.vault-wallet-card p,
+.vault-asset-info span,
+.vault-form-section > p,
+.persona-chat-panel > p,
+.persona-chat-history article p,
+.coming-card p {
+  color: var(--card-dark-muted);
+}
+
+.account-settings-note,
+.collection-meta,
+.story-card-bottom {
+  color: #aab3c1 !important;
+}
+
+/* Active navigation and pressed controls stay dark and unmistakable. */
+.member-nav button,
+.vault-tabs button {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.member-nav button:hover,
+.member-nav button:focus-visible,
+.vault-tabs button:hover,
+.vault-tabs button:focus-visible {
+  color: #fff;
+  background: var(--card-dark-raised);
+  border-color: var(--card-dark-border);
+  outline: 2px solid rgba(184, 137, 56, .55);
+  outline-offset: 2px;
+}
+
+.member-nav button.active,
+.member-nav button.active:hover,
+.member-nav button.active:focus-visible,
+.vault-tabs button.active,
+.vault-tabs button[aria-selected="true"] {
+  color: #fff;
+  background: #090d13;
+  border-color: #b88938;
+  box-shadow: inset 0 0 0 1px rgba(184, 137, 56, .2), 0 5px 16px rgba(0,0,0,.16);
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #b88938;
+  outline-offset: 3px;
+}
+
+button:active,
+[role="button"]:active {
+  filter: brightness(.92);
+}
+
+/* Inputs remain light with dark text for easy data entry. */
+.account-settings-card input,
+.account-settings-card textarea,
+.account-settings-card select,
+.account-profile-card input,
+.account-profile-card textarea,
+.account-profile-card select,
+.account-mfa-card input,
+.account-mfa-card textarea,
+.account-mfa-card select,
+.vault-wallet-form input,
+.vault-wallet-form textarea,
+.vault-wallet-form select,
+.vault-form input:not([type="checkbox"]),
+.vault-form textarea,
+.vault-form select,
+.persona-chat-panel textarea,
+.persona-chat-panel input,
+.persona-chat-panel select {
+  color: #17212e;
+  background: #fff;
+  border-color: #8d98a7;
+}
+
+.story-card .story-category,
+.collection-card .story-category,
+.account-settings-icon,
+.account-settings-icon svg {
+  color: #f0c46c;
+}

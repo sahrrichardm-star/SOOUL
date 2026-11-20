@@ -836,3 +836,11 @@ button:active,
 .admin-status-good, .admin-status-pending { display: inline-block; padding: 5px 8px; border: 1px solid rgba(107,211,154,.3); border-radius: 20px; color: #9be1b8; font-size: 10px; }
 .admin-status-pending { border-color: rgba(233,185,94,.35); color: #f0d7a6; }
 .admin-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 13px; margin-top: 18px; color: #ddd; font-size: 11px; }
+
+.legacy-notifications-card { border-color: rgba(233,185,94,.35); }
+.legacy-notification { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 15px 0; border-top: 1px solid rgba(255,255,255,.1); }
+.legacy-notification > div { display: grid; gap: 5px; }
+.legacy-notification strong { color: #f2d79f; font-size: 12px; }
+.legacy-notification p { margin: 0; color: #e2e2e2; font-size: 11px; line-height: 1.65; }
+.legacy-notification small { color: #aaa; font-size: 10px; }
+.legacy-notification.read { opacity: .62; }

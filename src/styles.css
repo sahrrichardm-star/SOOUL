@@ -682,3 +682,20 @@ button:active,
 }
 .vault-wallet-card .text-button,
 .persona-chat-panel .text-button { color: #f0c46c; }
+
+
+.vault-asset-actions button,
+.vault-wallet-card > button {
+  color: #c0c7d2;
+  border-radius: 7px;
+}
+.vault-asset-actions button:hover,
+.vault-wallet-card > button:hover {
+  color: #f0c46c;
+  background: #252d3a;
+}
+.vault-asset-actions button:focus-visible,
+.vault-wallet-card > button:focus-visible {
+  outline: 2px solid #b88938;
+  outline-offset: 2px;
+}

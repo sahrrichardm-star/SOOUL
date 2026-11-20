@@ -1517,11 +1517,14 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <a className="brand" href="/"><BrandMark /><span>SOOULL</span></a>
         <div className="member-top-actions">
           <span className="member-email">{user.email}</span>
-          <button className="member-export-button" type="button" onClick={() => void exportMyData()} disabled={exporting || restoring} title="Download a ZIP backup including private uploaded files"><Download size={15} /> {exporting ? 'Preparing…' : 'Export ZIP backup'}</button>
-          <button className="member-export-button" type="button" onClick={() => restoreInputRef.current?.click()} disabled={exporting || restoring} title="Restore records and files from a SOOULL ZIP backup"><Upload size={15} /> {restoring ? 'Restoring…' : 'Restore backup'}</button>
-          <input ref={restoreInputRef} type="file" accept=".zip,application/zip" hidden onChange={(event) => void restoreMyData(event)} />
-          {(exportProgress || restoreProgress) && <span className="member-export-progress" role="status">{restoreProgress || exportProgress}</span>}
-          <button className="signout-button" type="button" onClick={onSignOut}>Sign out</button>
+          <div className="account-menu-wrap">
+            <button className="account-menu-trigger" type="button" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)}><Settings size={16} /> Account <span aria-hidden="true">▾</span></button>
+            {accountMenuOpen && <div className="account-menu-panel">
+              <button type="button" onClick={() => { setActiveSection('account'); setAccountMenuOpen(false) }}><Settings size={15} /> Account settings</button>
+              {adminRole && <a href="/admin"><ShieldCheck size={15} /> Admin dashboard</a>}
+              <button type="button" onClick={onSignOut}><ArrowLeft size={15} /> Sign out</button>
+            </div>}
+          </div>
         </div>
       </header>
 
@@ -1542,7 +1545,6 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button type="button" className={activeSection === 'vault' ? 'active' : ''} onClick={() => setActiveSection('vault')}><LockKeyhole size={16} /> Assets & Wallet</button>
         <button type="button" className={activeSection === 'persona' ? 'active' : ''} onClick={() => setActiveSection('persona')}><Sparkles size={16} /> AI Legacy</button>
         <button type="button" className={activeSection === 'trusted' ? 'active' : ''} onClick={() => setActiveSection('trusted')}><Users size={16} /> Trusted People</button>
-        <button type="button" className={activeSection === 'account' ? 'active' : ''} onClick={() => setActiveSection('account')}><Settings size={16} /> Account</button>
       </nav>
 
       {activeSection === 'stories' && <>

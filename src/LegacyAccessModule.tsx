@@ -66,10 +66,6 @@ export default function LegacyAccessModule({ userId }: { userId: string }) {
   async function savePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase || saving) return
-    if (!plan.life_event_enabled && !plan.inactivity_enabled) {
-      setError('Enable at least one future-access trigger, or leave the settings unsaved.')
-      return
-    }
     setSaving(true); setError(''); setMessage('')
     try {
       const { error: saveError } = await supabase.from('legacy_access_plans').upsert({

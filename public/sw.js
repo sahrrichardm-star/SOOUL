@@ -1,10 +1,15 @@
-const CACHE_NAME = 'sooull-shell-v1'
-const APP_SHELL = ['/', '/manifest.webmanifest', '/sooull-mark.svg']
+const CACHE_NAME = 'sooull-shell-v2'
+const APP_SHELL = ['/manifest.webmanifest', '/sooull-mark.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME)
-    await cache.addAll(APP_SHELL)
+    const shellResponse = await fetch('/', { cache: 'no-cache' })
+    if (!shellResponse.ok) throw new Error('Could not cache the SOOULL application shell.')
+    await cache.put('/', shellResponse.clone())
+    const html = await shellResponse.text()
+    const assetUrls = [...html.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+)"/g)].map((match) => match[1])
+    await cache.addAll([...new Set([...APP_SHELL, ...assetUrls])])
     await self.skipWaiting()
   })())
 })
@@ -23,8 +28,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // Only immutable, same-origin build assets are cached. Never cache auth,
-  // API, profile, wallet, story, or other private account responses.
+  // Only same-origin application assets are cached. Supabase auth, database,
+  // Storage and all private account responses are deliberately never cached.
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME)

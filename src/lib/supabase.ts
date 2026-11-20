@@ -12,7 +12,7 @@ const supabasePublishableKey =
  */
 export const supabase =
   supabaseUrl && supabasePublishableKey
-    ? createClient(supabaseUrl, supabasePublishableKey)
+    ? createClient(supabaseUrl, supabasePublishableKey, { auth: { experimental: { passkey: true } } })
     : null
 
 export const isSupabaseConfigured = Boolean(supabase)

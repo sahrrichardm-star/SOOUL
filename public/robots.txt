@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sooull.vercel.app/sitemap.xml

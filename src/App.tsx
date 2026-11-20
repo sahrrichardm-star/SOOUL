@@ -894,7 +894,7 @@ function readSooullBackupZip(buffer: ArrayBuffer) {
   if (!manifest) throw new Error('The SOOULL backup manifest is missing.')
   if (manifest.byteLength > 64 * 1024 * 1024) throw new Error('The backup manifest is too large to restore safely.')
   const backup = JSON.parse(decoder.decode(manifest)) as Record<string, unknown>
-  if (backup.application !== 'SOOULL' || ![3, 4].includes(Number(backup.format_version))) {
+  if (backup.application !== 'SOOULL' || ![3, 4, 5].includes(Number(backup.format_version))) {
     throw new Error('This is not a supported SOOULL backup version.')
   }
   return { backup, files }
@@ -975,7 +975,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const backup = {
         application: 'SOOULL',
-        format_version: 4,
+        format_version: 5,
         exported_at: new Date().toISOString(),
         account: { id: user.id, email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {

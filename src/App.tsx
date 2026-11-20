@@ -1174,7 +1174,6 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       }
 
       const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
-      const sameAccount = account.id === user.id
       const profileRaw = account.profile && typeof account.profile === 'object' ? account.profile as Record<string, unknown> : null
       let restoredAvatarPath: string | null = null
       let pendingAvatar: { bytes: Uint8Array; name: string; mime: string } | null = null
@@ -1214,7 +1213,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
               display_name: str(r.display_name, 'AI Legacy profile', 120),
               biography: str(r.biography, 'AI Legacy profile', 5000),
               response_style: str(r.response_style, 'AI Legacy profile', 120) || 'warm and thoughtful',
-              is_enabled: sameAccount && r.is_enabled === true, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
+              is_enabled: false, created_at: stamp(r.created_at), updated_at: stamp(r.updated_at),
             }]
           })() : []
       // Consent is never imported or overwritten by a data restore. In particular,
@@ -1242,7 +1241,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRaw.length +
         consents.length + sources.length + conversations.length + messages.length + personaProfile.length
-      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent is never changed by a restore; any new account must grant consent again. This cannot be automatically rolled back.')) {
+      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent is never changed by a restore, and AI Legacy will remain disabled until you review and save its settings. This cannot be automatically rolled back.')) {
         setRestoreProgress('Restore cancelled.')
         return
       }

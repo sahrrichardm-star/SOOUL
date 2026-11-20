@@ -142,7 +142,8 @@ a { color: inherit; text-decoration: none; }
 
 
 /* SOOULL private stories workspace */
-.member-top-actions { display: flex; align-items: center; gap: 18px; }
+.member-top-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.member-export-progress { flex-basis: 100%; color: #b9c1ce; font-size: 10px; text-align: right; }
 .member-email { color: var(--muted); font-size: 12px; }
 .dashboard-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 70px 0 35px; }
 .dashboard-heading h1 { margin: 18px 0 8px; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(38px, 5vw, 58px); line-height: 1.08; font-weight: 500; letter-spacing: -.045em; }
@@ -244,9 +245,10 @@ a { color: inherit; text-decoration: none; }
 .member-export-button:hover:not(:disabled) { background: rgba(233,185,94,.12); }
 .member-export-button:disabled { opacity: .6; cursor: wait; }
 @media (max-width: 620px) {
-  .member-top-actions { gap: 8px; }
+  .member-top-actions { gap: 6px; max-width: 100%; }
   .member-email { display: none; }
   .member-export-button { padding: 8px; font-size: 10px; }
+  .member-export-progress { max-width: 100%; overflow-wrap: anywhere; }
 }
 
 

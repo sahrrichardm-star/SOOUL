@@ -1075,6 +1075,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     let assetsCommitted = false
     let profileCommitted = false
     try {
+      if (file.size <= 0 || file.size > 280 * 1024 * 1024) throw new Error('Choose a non-empty SOOULL ZIP backup no larger than 280 MB.')
       const { backup, files } = readSooullBackupZip(await file.arrayBuffer())
       const collections = backup.collections && typeof backup.collections === 'object' ? backup.collections as Record<string, unknown> : {}
       const ai = backup.ai_legacy && typeof backup.ai_legacy === 'object' ? backup.ai_legacy as Record<string, unknown> : {}

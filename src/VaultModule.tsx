@@ -127,9 +127,21 @@ export function VaultModule({ userId }: { userId: string }) {
 
   async function openAsset(asset: Asset) {
     if (!supabase) return
+    // Open the tab synchronously inside the click handler so browser popup
+    // blockers do not reject the signed-URL navigation after the network call.
+    const target = window.open('about:blank', '_blank')
+    if (!target) {
+      setError('Allow pop-ups for SOOULL to open your private file in a new tab.')
+      return
+    }
+    target.opener = null
     const { data, error: linkError } = await supabase.storage.from('private-assets').createSignedUrl(asset.storage_path, 60)
-    if (linkError) { setError(linkError.message); return }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    if (linkError || !data?.signedUrl) {
+      target.close()
+      setError(linkError?.message || 'Could not open this private file.')
+      return
+    }
+    target.location.replace(data.signedUrl)
   }
 
   async function deleteAsset(asset: Asset) {

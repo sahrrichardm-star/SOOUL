@@ -1031,7 +1031,7 @@ function readSooullBackupZip(buffer: ArrayBuffer) {
   if (!manifest) throw new Error('The SOOULL backup manifest is missing.')
   if (manifest.byteLength > 64 * 1024 * 1024) throw new Error('The backup manifest is too large to restore safely.')
   const backup = JSON.parse(decoder.decode(manifest)) as Record<string, unknown>
-  if (backup.application !== 'SOOULL' || ![3, 4, 5].includes(Number(backup.format_version))) {
+  if (backup.application !== 'SOOULL' || ![3, 4, 5, 6].includes(Number(backup.format_version))) {
     throw new Error('This is not a supported SOOULL backup version.')
   }
   return { backup, files }
@@ -1089,13 +1089,13 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     setExportProgress('Preparing account data…')
     setError('')
     try {
-      const fetchAllRows = async (table: string, columns: string, maxRows = 50000) => {
+      const fetchAllRows = async (table: string, columns: string, maxRows = 50000, ownerColumn = 'user_id') => {
         const all: any[] = []
         const pageSize = 500
         for (let offset = 0; offset <= maxRows; offset += pageSize) {
           const end = Math.min(offset + pageSize - 1, maxRows)
           const { data, error: queryError } = await (supabase as any).from(table)
-            .select(columns).eq('user_id', user.id).order('created_at', { ascending: true }).range(offset, end)
+            .select(columns).eq(ownerColumn, user.id).order('created_at', { ascending: true }).range(offset, end)
           if (queryError) return { data: null, error: queryError }
           const page = data ?? []
           if (all.length + page.length > maxRows) {
@@ -1110,6 +1110,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult,
         personaProfileResult, personaConsentResult, personaSourceResult,
         personaConversationResult, personaMessageResult, trustedContactsResult,
+        legacyAccessPlanResult, legacyAccessRecipientResult, legacyAccessGrantResult,
       ] = await Promise.all([
         fetchAllRows('stories', 'id,title,content,category,story_date,is_favorite,created_at,updated_at'),
         fetchAllRows('legacy_entries', 'id,title,content,entry_type,recipient,is_featured,created_at,updated_at'),
@@ -1123,10 +1124,13 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         fetchAllRows('persona_conversations', 'id,title,created_at,updated_at'),
         fetchAllRows('persona_messages', 'id,conversation_id,role,content,source_refs,model_id,created_at', 10000),
         fetchAllRows('trusted_contacts', 'id,full_name,relationship,email,phone,notes,is_primary,created_at,updated_at'),
+        supabase.from('legacy_access_plans').select('life_event_enabled,inactivity_enabled,inactivity_days,last_confirmed_at,created_at,updated_at').eq('owner_id', user.id).maybeSingle(),
+        fetchAllRows('legacy_access_recipients', 'id,trusted_contact_id,recipient_email,invitation_status,created_at,updated_at', 50000, 'owner_id'),
+        fetchAllRows('legacy_access_grants', 'id,recipient_id,content_type,content_id,created_at', 50000, 'owner_id'),
       ])
       const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error ||
         walletResult.error || profileResult.error || personaProfileResult.error || personaConsentResult.error ||
-        personaSourceResult.error || personaConversationResult.error || personaMessageResult.error || trustedContactsResult.error
+        personaSourceResult.error || personaConversationResult.error || personaMessageResult.error || trustedContactsResult.error || legacyAccessPlanResult.error || legacyAccessRecipientResult.error || legacyAccessGrantResult.error
       if (failed) throw failed
 
       const assets = assetResult.data ?? []
@@ -1138,7 +1142,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
 
       const backup = {
         application: 'SOOULL',
-        format_version: 5,
+        format_version: 6,
         exported_at: new Date().toISOString(),
         account: { id: user.id, email: user.email ?? null, profile: profileResult.data ?? null },
         collections: {
@@ -1148,6 +1152,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           assets: assets,
           wallet: walletResult.data ?? [],
           trusted_people: trustedContactsResult.data ?? [],
+        },
+        legacy_access: {
+          plan: legacyAccessPlanResult.data ?? null,
+          recipients: legacyAccessRecipientResult.data ?? [],
+          selected_grants: legacyAccessGrantResult.data ?? [],
         },
         ai_legacy: {
           persona_profile: personaProfileResult.data ?? null,
@@ -1161,6 +1170,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
           'Private file binaries are included under the assets/ folder; your profile photo is included under profile/.',
           'This archive contains private account information, uploaded files and AI Legacy conversation content. Store it securely and do not share it publicly.',
           'AI Legacy messages are exported up to 10,000 records per backup.',
+          'Legacy Access settings and selected items are included, but recipients must be re-verified after restoration and future-access triggers are restored disabled.',
           'The browser backup is limited to 250 MB of uploaded files to avoid exhausting device memory.',
         ],
       }
@@ -1244,6 +1254,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const ai = backup.ai_legacy && typeof backup.ai_legacy === 'object' ? backup.ai_legacy as Record<string, unknown> : {}
       const account = backup.account && typeof backup.account === 'object' ? backup.account as Record<string, unknown> : {}
       const sameAccount = account.id === user.id
+      if (!sameAccount) throw new Error('This backup belongs to a different SOOULL account. Sign in to the original account before restoring it.')
       const rows = (value: unknown, label: string, limit = 50000): Record<string, unknown>[] => {
         if (value == null) return []
         if (!Array.isArray(value) || value.length > limit) throw new Error('The ' + label + ' section is invalid or exceeds the restore limit.')
@@ -1282,6 +1293,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const assetRaw = rows(collections.assets, 'assets', 50000)
       const walletRaw = rows(collections.wallet, 'wallet records')
       const trustedRaw = rows(collections.trusted_people, 'trusted people')
+      const legacyAccess = backup.legacy_access && typeof backup.legacy_access === 'object' ? backup.legacy_access as Record<string, unknown> : {}
+      const legacyAccessPlanRaw = legacyAccess.plan && typeof legacyAccess.plan === 'object' ? legacyAccess.plan as Record<string, unknown> : null
+      const legacyRecipientRaw = rows(legacyAccess.recipients, 'legacy access recipients', 50000)
+      const legacyGrantRaw = rows(legacyAccess.selected_grants, 'legacy access grants', 50000)
       const sourceRaw = rows(ai.approved_sources, 'AI Legacy approved sources')
       const conversationRaw = rows(ai.conversations, 'AI Legacy conversations')
       const messageRaw = rows(ai.messages, 'AI Legacy messages', 10000)
@@ -1316,7 +1331,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         }
       })
 
-      const allowedMime = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
+      const allowedMime = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','text/csv','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/rtf','text/rtf','application/vnd.oasis.opendocument.spreadsheet','application/vnd.oasis.opendocument.text','audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','video/mp4','video/webm','video/quicktime']
       const pendingAssets: { row: Record<string, unknown>; bytes: Uint8Array; name: string; mime: string; existingPath: string }[] = []
       const validAssetIds = new Set(assetRaw.map((r) => uuid(r.id, 'assets')))
       const existingAssetPaths = new Map<string, string>()
@@ -1378,6 +1393,47 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         }
       }
 
+      const trustedContactIds = new Set(trusted.map((item) => String(item.id)))
+      const legacyRecipients = legacyRecipientRaw.filter((r) => trustedContactIds.has(String(r.trusted_contact_id))).map((r) => ({
+        id: uuid(r.id, 'legacy access recipients'),
+        owner_id: user.id,
+        trusted_contact_id: uuid(r.trusted_contact_id, 'legacy access recipients'),
+        recipient_email: str(r.recipient_email, 'legacy access recipients', 254, true).toLowerCase(),
+        recipient_user_id: null,
+        invitation_status: 'pending',
+        created_at: stamp(r.created_at),
+        updated_at: new Date().toISOString(),
+      }))
+      const legacyRecipientIds = new Set(legacyRecipients.map((item) => item.id))
+      const validLegacyContent = new Set([
+        ...stories.map((item) => 'story:' + item.id),
+        ...legacy.map((item) => 'legacy_entry:' + item.id),
+        ...safeRecords.map((item) => 'safekeeping_record:' + item.id),
+        ...assetRaw.map((item) => 'asset:' + String(item.id)),
+      ])
+      const legacyGrants = legacyGrantRaw.filter((r) =>
+        legacyRecipientIds.has(String(r.recipient_id)) &&
+        validLegacyContent.has(String(r.content_type) + ':' + String(r.content_id))
+      ).map((r) => ({
+        id: uuid(r.id, 'legacy access grants'),
+        owner_id: user.id,
+        recipient_id: uuid(r.recipient_id, 'legacy access grants'),
+        content_type: r.content_type,
+        content_id: uuid(r.content_id, 'legacy access grants'),
+        created_at: stamp(r.created_at),
+      }))
+      const legacyPlan = legacyAccessPlanRaw ? [{
+        owner_id: user.id,
+        life_event_enabled: false,
+        inactivity_enabled: false,
+        inactivity_days: Math.min(7, Math.max(1, Number(legacyAccessPlanRaw.inactivity_days) || 7)),
+        last_confirmed_at: new Date().toISOString(),
+        warning_sent_at: null,
+        inactivity_triggered_at: null,
+        created_at: stamp(legacyAccessPlanRaw.created_at),
+        updated_at: new Date().toISOString(),
+      }] : []
+
       const wallet = walletRaw.map((r) => {
         const assetId = typeof r.asset_id === 'string' && validAssetIds.has(r.asset_id) ? r.asset_id : null
         const lastFour = str(r.account_last_four, 'wallet records', 4)
@@ -1435,9 +1491,9 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         created_at: stamp(r.created_at),
       }))
 
-      const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRaw.length +
+      const count = stories.length + legacy.length + safeRecords.length + trusted.length + wallet.length + assetRaw.length + legacyRecipients.length + legacyGrants.length + legacyPlan.length +
         consents.length + sources.length + conversations.length + messages.length + personaProfile.length
-      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent is never changed by a restore, and AI Legacy will remain disabled until you review and save its settings. This cannot be automatically rolled back.')) {
+      if (!window.confirm('Restore ' + count + ' records and ' + assetRaw.length + ' private files from this SOOULL backup? Existing records with matching IDs will be updated. Other existing records will be kept. Your profile details may be updated. AI Legacy consent is never changed by a restore. Legacy Access triggers will be restored disabled, recipient account links will be cleared, and recipients must be re-verified. This cannot be automatically rolled back.')) {
         setRestoreProgress('Restore cancelled.')
         return
       }
@@ -1490,6 +1546,9 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       await batchUpsert('legacy_entries', legacy)
       await batchUpsert('safekeeping_records', safeRecords)
       await batchUpsert('trusted_contacts', trusted)
+      if (legacyPlan.length) await batchUpsert('legacy_access_plans', legacyPlan, 'owner_id')
+      if (legacyRecipients.length) await batchUpsert('legacy_access_recipients', legacyRecipients)
+      if (legacyGrants.length) await batchUpsert('legacy_access_grants', legacyGrants, 'recipient_id,content_type,content_id')
 
       setRestoreProgress('Restoring private asset records…')
       // Once the metadata batches begin, retain uploaded files: an earlier batch

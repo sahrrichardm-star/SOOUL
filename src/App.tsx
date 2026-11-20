@@ -926,23 +926,40 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     setExportProgress('Preparing account data…')
     setError('')
     try {
+      const fetchAllRows = async (table: string, columns: string, maxRows = 50000) => {
+        const all: any[] = []
+        const pageSize = 500
+        for (let offset = 0; offset <= maxRows; offset += pageSize) {
+          const end = Math.min(offset + pageSize - 1, maxRows)
+          const { data, error: queryError } = await (supabase as any).from(table)
+            .select(columns).eq('user_id', user.id).order('created_at', { ascending: true }).range(offset, end)
+          if (queryError) return { data: null, error: queryError }
+          const page = data ?? []
+          if (all.length + page.length > maxRows) {
+            return { data: null, error: new Error('The ' + table + ' collection exceeds the safe export limit of ' + maxRows + ' records. Split the collection before exporting.') }
+          }
+          all.push(...page)
+          if (page.length < end - offset + 1) return { data: all, error: null }
+        }
+        return { data: all, error: null }
+      }
       const [
         storyResult, legacyResult, safeResult, assetResult, walletResult, profileResult,
         personaProfileResult, personaConsentResult, personaSourceResult,
         personaConversationResult, personaMessageResult, trustedContactsResult,
       ] = await Promise.all([
-        supabase.from('stories').select('id,title,content,category,story_date,is_favorite,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('legacy_entries').select('id,title,content,entry_type,recipient,is_featured,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('safekeeping_records').select('id,title,record_type,institution,notes,review_date,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('assets').select('id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('wallet_records').select('id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        fetchAllRows('stories', 'id,title,content,category,story_date,is_favorite,created_at,updated_at'),
+        fetchAllRows('legacy_entries', 'id,title,content,entry_type,recipient,is_featured,created_at,updated_at'),
+        fetchAllRows('safekeeping_records', 'id,title,record_type,institution,notes,review_date,created_at,updated_at'),
+        fetchAllRows('assets', 'id,title,asset_type,storage_path,mime_type,file_size_bytes,created_at'),
+        fetchAllRows('wallet_records', 'id,title,record_type,institution,account_label,account_last_four,notes,asset_id,created_at,updated_at'),
         supabase.from('profiles').select('first_name,middle_name,last_name,residential_address,country,phone,date_of_birth,avatar_path,created_at,updated_at').eq('id', user.id).maybeSingle(),
         supabase.from('persona_profiles').select('id,display_name,biography,response_style,is_enabled,created_at,updated_at').eq('user_id', user.id).maybeSingle(),
-        supabase.from('persona_consents').select('id,consent_type,policy_version,granted_at,revoked_at,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('persona_sources').select('id,source_type,source_id,is_enabled,created_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('persona_conversations').select('id,title,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
-        supabase.from('persona_messages').select('id,conversation_id,role,content,source_refs,model_id,created_at').eq('user_id', user.id).order('created_at', { ascending: true }).range(0, 9999),
-        supabase.from('trusted_contacts').select('id,full_name,relationship,email,phone,notes,is_primary,created_at,updated_at').eq('user_id', user.id).order('created_at', { ascending: true }),
+        fetchAllRows('persona_consents', 'id,consent_type,policy_version,granted_at,revoked_at,created_at'),
+        fetchAllRows('persona_sources', 'id,source_type,source_id,is_enabled,created_at'),
+        fetchAllRows('persona_conversations', 'id,title,created_at,updated_at'),
+        fetchAllRows('persona_messages', 'id,conversation_id,role,content,source_refs,model_id,created_at', 10000),
+        fetchAllRows('trusted_contacts', 'id,full_name,relationship,email,phone,notes,is_primary,created_at,updated_at'),
       ])
       const failed = storyResult.error || legacyResult.error || safeResult.error || assetResult.error ||
         walletResult.error || profileResult.error || personaProfileResult.error || personaConsentResult.error ||

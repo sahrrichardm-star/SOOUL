@@ -28,7 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
 
       # The repository currently has no committed lockfile. Generate one in CI
       # from the exact direct dependency versions, then use npm ci for the build.

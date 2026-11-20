@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
   if (!url || !anonKey || !serviceKey) return json(503, { error: "Administrator service is not configured." }, origin);
 
   const userClient = createClient(url, anonKey, {
-    global: { headers: { Authorization: \`Bearer \${token}\` } },
+    global: { headers: { Authorization: "Bearer " + token } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const serverClient = createClient(url, serviceKey, {

@@ -819,3 +819,20 @@ button:active,
 .legacy-access-notice p { margin: 0; color: #e7e7e7; font-size: 11px; line-height: 1.7; }
 .legacy-access-notice strong { color: #f2d79f; }
 @media (max-width: 620px) { .legacy-access-card { padding: 18px; } .legacy-recipient-row { align-items: flex-start; flex-direction: column; } }
+
+.admin-nav-tabs { display: flex; gap: 8px; margin: 0 0 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.admin-nav-tabs button { min-height: 38px; padding: 0 16px; border: 1px solid transparent; border-radius: 5px; color: #d6d6d6; background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.admin-nav-tabs button.active { border-color: rgba(233,185,94,.4); color: #ffe2a8; background: #15120b; }
+.admin-customers-panel { margin-top: 22px; padding: 24px; border: 1px solid rgba(233,185,94,.25); border-radius: 8px; background: #101010; }
+.admin-customers-panel > p { color: #d4d4d4; font-size: 12px; line-height: 1.65; }
+.admin-search-input { width: min(100%, 420px); min-height: 42px; margin: 12px 0 18px; padding: 0 13px; border: 1px solid rgba(233,185,94,.3); border-radius: 5px; color: #fff; background: #080808; font: inherit; font-size: 12px; }
+.admin-table-wrap { width: 100%; overflow-x: auto; }
+.admin-users-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+.admin-users-table th { padding: 12px 10px; border-bottom: 1px solid rgba(233,185,94,.3); color: #f0d7a6; font-size: 10px; font-weight: 700; text-align: left; text-transform: uppercase; letter-spacing: .06em; }
+.admin-users-table td { padding: 14px 10px; border-bottom: 1px solid rgba(255,255,255,.09); color: #e6e6e6; font-size: 11px; vertical-align: middle; }
+.admin-users-table td:first-child { display: grid; gap: 4px; }
+.admin-users-table td:first-child strong { color: #fff; font-size: 12px; }
+.admin-users-table td:first-child small { color: #c6c6c6; font-size: 10px; }
+.admin-status-good, .admin-status-pending { display: inline-block; padding: 5px 8px; border: 1px solid rgba(107,211,154,.3); border-radius: 20px; color: #9be1b8; font-size: 10px; }
+.admin-status-pending { border-color: rgba(233,185,94,.35); color: #f0d7a6; }
+.admin-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 13px; margin-top: 18px; color: #ddd; font-size: 11px; }

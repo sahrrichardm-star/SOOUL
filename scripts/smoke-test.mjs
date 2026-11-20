@@ -41,6 +41,8 @@ try {
   const javascript = [...assetContents.entries()].filter(([path]) => path.endsWith('.js')).map(([, body]) => body).join('\\n')
   const stylesheet = [...assetContents.entries()].filter(([path]) => path.endsWith('.css')).map(([, body]) => body).join('\\n')
   assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
+  assert.ok(javascript.includes('Phone number (optional)'), 'Phone number must remain optional in account forms.')
+  assert.ok(javascript.includes('If you add a phone number'), 'Provided phone numbers must retain international-format validation.')
   assert.ok(javascript.includes('SOOULL needs to reload.'), 'The application error recovery screen must be bundled.')
   assert.ok(stylesheet.includes('--card-dark'), 'High-contrast dark card styling must be bundled.')
 

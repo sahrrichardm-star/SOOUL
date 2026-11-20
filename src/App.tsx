@@ -140,8 +140,8 @@ function AuthPanel({ onClose, onAuthenticated, initialMode = 'signup' }: { onClo
       setError('SOOULL authentication is not configured yet. The Supabase project URL and publishable key must be added to Vercel environment variables.')
       return
     }
+    const normalizedPhone = normalizeInternationalPhone(phone)
     if (mode === 'signup') {
-      const normalizedPhone = normalizeInternationalPhone(phone)
       if (!firstName.trim() || !lastName.trim() || !address.trim() || !country.trim() || !dateOfBirth) {
         setError('Enter your first name, last name, residential address, country and date of birth.')
         return
@@ -657,7 +657,7 @@ function AccountSettings({ user, onNameSaved, onExportBackup, onRestoreFile, exp
     if (!supabase || passkeyBusy) return
     setPasskeyBusy(true); setPasskeyError(''); setPasskeyMessage('')
     try {
-      const { data, error } = await supabase.auth.registerPasskey()
+      const { error } = await supabase.auth.registerPasskey()
       if (error) throw error
       const { data: list, error: listError } = await supabase.auth.passkey.list()
       if (listError) throw listError

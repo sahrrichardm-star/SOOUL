@@ -884,10 +884,10 @@ function readSooullBackupZip(buffer: ArrayBuffer) {
     const name = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength))
     if (!name || name.startsWith('/') || name.includes('\\') || name.split('/').includes('..')) throw new Error('The backup contains an unsafe file path.')
     if (files.has(name)) throw new Error('The backup contains duplicate file entries.')
-    const contents = bytes.slice(dataStart, dataEnd)
+    const contents = bytes.subarray(dataStart, dataEnd)
     if (zipCrc32(contents) !== crc) throw new Error('A backup file failed its integrity check: ' + name)
     files.set(name, contents)
-    if (files.size > 10005) throw new Error('The backup contains too many files.')
+    if (files.size > 50005) throw new Error('The backup contains too many files.')
     offset = dataEnd
   }
   const manifest = files.get('sooull-backup.json')
@@ -1065,7 +1065,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const { backup, files } = readSooullBackupZip(await file.arrayBuffer())
       const collections = backup.collections && typeof backup.collections === 'object' ? backup.collections as Record<string, unknown> : {}
       const ai = backup.ai_legacy && typeof backup.ai_legacy === 'object' ? backup.ai_legacy as Record<string, unknown> : {}
-      const rows = (value: unknown, label: string, limit = 20000): Record<string, unknown>[] => {
+      const rows = (value: unknown, label: string, limit = 50000): Record<string, unknown>[] => {
         if (value == null) return []
         if (!Array.isArray(value) || value.length > limit) throw new Error('The ' + label + ' section is invalid or exceeds the restore limit.')
         return value.map((item) => {
@@ -1100,7 +1100,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       const storiesRaw = rows(collections.stories, 'stories')
       const legacyRaw = rows(collections.legacy, 'legacy entries')
       const safeRaw = rows(collections.safekeeping, 'safekeeping records')
-      const assetRaw = rows(collections.assets, 'assets')
+      const assetRaw = rows(collections.assets, 'assets', 50000)
       const walletRaw = rows(collections.wallet, 'wallet records')
       const trustedRaw = rows(collections.trusted_people, 'trusted people')
       const sourceRaw = rows(ai.approved_sources, 'AI Legacy approved sources')

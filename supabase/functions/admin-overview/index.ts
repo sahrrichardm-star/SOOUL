@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { error: "Method not allowed." }, origin);
   if (origin && !allowedOrigins.has(origin)) return json(403, { error: "Origin is not allowed." }, origin);
 
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\\s+/i, "");
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const url = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
   if (!url || !anonKey || !serviceKey) return json(503, { error: "Administrator service is not configured." }, origin);
 
   const userClient = createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: { headers: { Authorization: \`Bearer \${token}\` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const serverClient = createClient(url, serviceKey, {
@@ -57,6 +57,53 @@ Deno.serve(async (req: Request) => {
     if (!role) return json(403, { error: "This account is not authorized for SOOULL administration." }, origin);
     if (assuranceError || assurance?.currentLevel !== "aal2") {
       return json(403, { error: "Administrator access requires a verified second authentication factor." }, origin);
+    }
+
+    const payload = await req.json().catch(() => ({}));
+    const action = payload?.action === "users" ? "users" : "overview";
+
+    if (action === "users") {
+      if (role === "analytics_admin") return json(403, { error: "Your administrator role does not permit customer account lookup." }, origin);
+      const page = Math.max(1, Math.min(100000, Number(payload?.page) || 1));
+      const perPage = Math.max(10, Math.min(50, Number(payload?.perPage) || 25));
+      const { data: userPage, error: usersError } = await serverClient.auth.admin.listUsers({ page, perPage });
+      if (usersError) {
+        console.error("admin user list failed", usersError);
+        return json(503, { error: "Customer account data is temporarily unavailable." }, origin);
+      }
+      const authUsers = userPage?.users ?? [];
+      const ids = authUsers.map((item) => item.id);
+      const { data: profiles, error: profilesError } = ids.length
+        ? await serverClient.from("profiles").select("id,first_name,last_name").in("id", ids)
+        : { data: [], error: null };
+      if (profilesError) {
+        console.error("admin profile labels failed", profilesError);
+        return json(503, { error: "Customer profile labels are temporarily unavailable." }, origin);
+      }
+      const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+      const users = authUsers.map((item) => {
+        const profile = profileMap.get(item.id);
+        return {
+          id: item.id,
+          email: item.email ?? "",
+          name: [profile?.first_name, profile?.last_name].filter(Boolean).join(" "),
+          created_at: item.created_at,
+          last_sign_in_at: item.last_sign_in_at ?? null,
+          email_confirmed_at: item.email_confirmed_at ?? null,
+          banned_until: item.banned_until ?? null,
+        };
+      });
+      const { error: auditError } = await serverClient.rpc("admin_record_audit", {
+        p_actor_id: authData.user.id,
+        p_action: "admin.customers.listed",
+        p_target_user_id: null,
+        p_details: { page, perPage, returned: users.length },
+      });
+      if (auditError) {
+        console.error("admin audit write failed", auditError);
+        return json(503, { error: "Administrator audit logging is unavailable. Customer lookup is paused." }, origin);
+      }
+      return json(200, { users, page, perPage, hasMore: users.length === perPage }, origin);
     }
 
     const { data: metrics, error: metricsError } = await serverClient.rpc("admin_metrics");

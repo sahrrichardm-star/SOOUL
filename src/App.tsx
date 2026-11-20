@@ -1301,8 +1301,10 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       await batchUpsert('trusted_contacts', trusted)
 
       setRestoreProgress('Restoring private asset records…')
-      await batchUpsert('assets', assetRows)
+      // Once the metadata batches begin, retain uploaded files: an earlier batch
+      // may already have committed even if a later batch fails.
       assetsCommitted = true
+      await batchUpsert('assets', assetRows)
 
       setRestoreProgress('Restoring wallet and AI Legacy records…')
       await batchUpsert('wallet_records', wallet)

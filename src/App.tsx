@@ -1040,7 +1040,7 @@ function readSooullBackupZip(buffer: ArrayBuffer) {
 function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [stories, setStories] = useState<Story[]>([])
   const [profileName, setProfileName] = useState('')
-  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'trusted' | 'account'>('stories')
+  const [activeSection, setActiveSection] = useState<'stories' | 'legacy' | 'safekeeping' | 'vault' | 'persona' | 'trusted' | 'legacy-access' | 'account'>('stories')
   const [adminRole, setAdminRole] = useState<string | null>(null)
   const [adminRoleChecked, setAdminRoleChecked] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
@@ -1745,6 +1745,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
         <button type="button" className={activeSection === 'vault' ? 'active' : ''} onClick={() => setActiveSection('vault')}><LockKeyhole size={16} /> Assets & Wallet</button>
         <button type="button" className={activeSection === 'persona' ? 'active' : ''} onClick={() => setActiveSection('persona')}><Sparkles size={16} /> AI Legacy</button>
         <button type="button" className={activeSection === 'trusted' ? 'active' : ''} onClick={() => setActiveSection('trusted')}><Users size={16} /> Trusted People</button>
+        <button type="button" className={activeSection === 'legacy-access' ? 'active' : ''} onClick={() => setActiveSection('legacy-access')}><KeyRound size={16} /> Legacy Access</button>
       </nav>
 
       {activeSection === 'stories' && <>
@@ -1785,6 +1786,7 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
       {activeSection === 'vault' && <Suspense fallback={<section className="stories-empty">Loading assets and wallet…</section>}><VaultModule userId={user.id} /></Suspense>}
       {activeSection === 'persona' && <Suspense fallback={<section className="stories-empty">Loading AI legacy…</section>}><PersonaModule userId={user.id} /></Suspense>}
       {activeSection === 'trusted' && <Suspense fallback={<section className="stories-empty">Loading trusted people…</section>}><TrustedPeopleModule userId={user.id} /></Suspense>}
+      {activeSection === 'legacy-access' && <Suspense fallback={<section className="stories-empty">Loading future access…</section>}><LegacyAccessModule userId={user.id} /></Suspense>}
       {activeSection === 'account' && <AccountSettings user={user} onNameSaved={setProfileName} onExportBackup={() => void exportMyData()} onRestoreFile={restoreMyData} exporting={exporting} restoring={restoring} exportProgress={exportProgress} restoreProgress={restoreProgress} />}
 
       <footer className="dashboard-footer"><span>SOOULL · YOUR LIFE. YOUR LEGACY.</span><span>Private by design.</span></footer>

@@ -30,10 +30,17 @@ try {
   const assets = [...html.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+)"/g)].map((match) => match[1])
   assert.ok(assets.some((path) => path.endsWith('.js')), 'The built application JavaScript must be linked.')
   assert.ok(assets.some((path) => path.endsWith('.css')), 'The built application stylesheet must be linked.')
+  const assetContents = new Map()
   for (const path of assets) {
     const response = await fetch(new URL(path, host))
     assert.equal(response.status, 200, 'Built asset failed to load: ' + path)
+    assetContents.set(path, await response.text())
   }
+  const javascript = [...assetContents.entries()].filter(([path]) => path.endsWith('.js')).map(([, body]) => body).join('\\n')
+  const stylesheet = [...assetContents.entries()].filter(([path]) => path.endsWith('.css')).map(([, body]) => body).join('\\n')
+  assert.ok(javascript.includes('Restore backup'), 'Backup restoration control must be in the application bundle.')
+  assert.ok(javascript.includes('SOOULL needs to reload.'), 'The application error recovery screen must be bundled.')
+  assert.ok(stylesheet.includes('--card-dark'), 'High-contrast dark card styling must be bundled.')
 
   const manifestResponse = await fetch(new URL('/manifest.webmanifest', host))
   assert.equal(manifestResponse.status, 200, 'PWA manifest must be available.')

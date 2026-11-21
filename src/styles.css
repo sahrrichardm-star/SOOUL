@@ -741,6 +741,7 @@ button:active,
 .admin-role, .admin-back-link { display: inline-flex; align-items: center; gap: 8px; color: #f1d59b; font-size: 12px; text-transform: capitalize; }
 .admin-back-link { color: #fff; }
 .admin-back-link:hover { color: var(--gold-bright); }
+.admin-back-link[type="button"] { border: 0; background: transparent; padding: 0; cursor: pointer; font: inherit; }
 .admin-brand-mark { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--gold); border-radius: 50%; color: #080808; background: var(--gold); font-family: Georgia, serif; font-size: 21px; letter-spacing: 0; }
 .admin-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 65px 0 32px; }
 .admin-heading h1 { margin: 15px 0 8px; color: #fff; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(38px, 5vw, 58px); font-weight: 500; }

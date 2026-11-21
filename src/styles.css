@@ -845,3 +845,26 @@ button:active,
 .legacy-notification p { margin: 0; color: #e2e2e2; font-size: 11px; line-height: 1.65; }
 .legacy-notification small { color: #aaa; font-size: 10px; }
 .legacy-notification.read { opacity: .62; }
+
+
+/* Clearer product explanation on the public landing page */
+.hero-actions{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.hero-secondary-link{border:0;background:transparent;color:var(--text-muted,#b9c0cd);font:inherit;font-size:.94rem;text-decoration:underline;text-underline-offset:4px;cursor:pointer;padding:10px 0}
+.hero-trust-note{display:flex;align-items:center;gap:8px;color:var(--text-muted,#b9c0cd);font-size:.86rem;margin-top:22px}
+.hero-trust-note svg{color:#d9a94e;flex:none}
+.how-section,.privacy-section,.closing-cta{width:min(1160px,calc(100% - 48px));margin:0 auto;padding:88px 0}
+.how-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:34px}
+.how-grid article{padding:26px;border:1px solid rgba(217,169,78,.2);border-radius:18px;background:rgba(255,255,255,.025)}
+.how-grid article>span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:rgba(217,169,78,.14);color:#e3b65f;font-weight:700}
+.how-grid h3{margin:18px 0 8px;font-size:1.08rem}
+.how-grid p,.privacy-copy p,.closing-cta p{color:var(--text-muted,#b9c0cd);line-height:1.75}
+.privacy-section{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
+.privacy-copy h2,.closing-cta h2{font-size:clamp(2rem,4vw,3.1rem);line-height:1.12;margin:16px 0}
+.privacy-points{display:grid;gap:16px}
+.privacy-points p{display:flex;gap:12px;align-items:flex-start;margin:0;line-height:1.6;color:var(--text-muted,#d0d4dd)}
+.privacy-points svg{color:#d9a94e;flex:none;margin-top:2px}
+.closing-cta{text-align:center;padding-bottom:100px}
+.closing-cta p{max-width:620px;margin:0 auto 26px}
+.closing-cta .primary-link{margin:0 auto}
+@media(max-width:800px){.how-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.privacy-section{grid-template-columns:1fr;gap:28px}}
+@media(max-width:520px){.hero-actions{align-items:flex-start;flex-direction:column;gap:8px}.how-grid{grid-template-columns:1fr}.how-section,.privacy-section,.closing-cta{width:min(100% - 32px,1160px);padding:58px 0}}

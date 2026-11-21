@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Activity, Archive, ArrowLeft, BrainCircuit, Database, RefreshCw,
+  Activity, Archive, ArrowLeft, BrainCircuit, Database, RefreshCw, LogOut,
   ShieldAlert, ShieldCheck, Users, Wallet, BookOpen, HardDrive,
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
@@ -31,7 +31,7 @@ const bytes = (value: unknown) => {
   return (size / Math.pow(1024, index)).toFixed(index > 1 ? 1 : 0) + ' ' + units[index]
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null)
   const [role, setRole] = useState('')
   const [loading, setLoading] = useState(true)
@@ -107,10 +107,11 @@ export default function AdminDashboard() {
   return (
     <main className="admin-shell">
       <header className="admin-topbar">
-        <a className="brand" href="/"><span className="admin-brand-mark">S</span><span>SOOULL</span></a>
+        <a className="brand" href="https://sooull.vercel.app"><span className="admin-brand-mark">S</span><span>SOOULL</span></a>
         <div className="admin-topbar-actions">
           <span className="admin-role"><ShieldCheck size={14} /> {role.replaceAll('_', ' ') || 'Administrator'}</span>
-          <a className="admin-back-link" href="/"><ArrowLeft size={15} /> Customer app</a>
+          <a className="admin-back-link" href="https://sooull.vercel.app"><ArrowLeft size={15} /> Customer app</a>
+          <button className="admin-back-link" type="button" onClick={onSignOut}><LogOut size={15} /> Sign out</button>
         </div>
       </header>
 

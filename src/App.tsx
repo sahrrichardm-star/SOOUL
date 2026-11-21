@@ -1763,11 +1763,11 @@ function MemberSpace({ user, onSignOut }: { user: User; onSignOut: () => void })
     || (typeof metadata.full_name === 'string' ? metadata.full_name.trim().split(/\s+/)[0] : '')
     || 'Member'
 
-  const isAdminRoute = window.location.pathname.replace(/\/+$/, '') === '/admin'
+  const isAdminRoute = window.location.pathname.replace(/\/+$/, '') === '/admin' || window.location.hostname === 'soull-admin.vercel.app'
   if (isAdminRoute) {
     if (!adminRoleChecked) return <main className="auth-screen"><section className="auth-panel"><div className="loading-ring" /><h1>Checking administrator access.</h1></section></main>
     if (!adminRole) return <main className="auth-screen"><section className="auth-panel"><div className="eyebrow"><ShieldCheck size={14} /> RESTRICTED AREA</div><h1>Administrator access required.</h1><p className="auth-intro">This account has not been granted an active SOOULL administrator role.</p><a className="auth-submit" href="/">Return to SOOULL</a></section></main>
-    return <AdminDashboard />
+    return <AdminDashboard onSignOut={onSignOut} />
   }
 
   return (
@@ -1909,8 +1909,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [mfaState, setMfaState] = useState<'checking' | 'required' | 'clear' | 'error'>('checking')
   const [mfaCheckAttempt, setMfaCheckAttempt] = useState(0)
-  const [authOpen, setAuthOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<AuthMode>('signup')
+  const adminHost = window.location.hostname === 'soull-admin.vercel.app'
+  const [authOpen, setAuthOpen] = useState(() => adminHost)
+  const [authMode, setAuthMode] = useState<AuthMode>(() => adminHost ? 'signin' : 'signup')
 
   useEffect(() => {
     if (!supabase) { setMfaState('clear'); return }

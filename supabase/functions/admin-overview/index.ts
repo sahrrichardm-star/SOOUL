@@ -61,9 +61,19 @@ Deno.serve(async (req: Request) => {
 
     const payload = await req.json().catch(() => ({}));
     const action = payload?.action === "users" ? "users" : "overview";
+    const requiredPermission = action === "users" ? "users.view" : "dashboard.view";
+    const { data: permitted, error: permissionError } = await userClient.rpc("admin_has_permission", {
+      p_permission: requiredPermission,
+    });
+    if (permissionError) {
+      console.error("admin permission check failed", permissionError);
+      return json(503, { error: "Administrator permissions could not be checked." }, origin);
+    }
+    if (permitted !== true) {
+      return json(403, { error: "Your administrator role does not permit this action." }, origin);
+    }
 
     if (action === "users") {
-      if (role === "analytics_admin") return json(403, { error: "Your administrator role does not permit customer account lookup." }, origin);
       const page = Math.max(1, Math.min(100000, Number(payload?.page) || 1));
       const perPage = Math.max(10, Math.min(50, Number(payload?.perPage) || 25));
       const { data: userPage, error: usersError } = await serverClient.auth.admin.listUsers({ page, perPage });

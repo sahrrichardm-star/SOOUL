@@ -1986,10 +1986,14 @@ export default function App() {
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy-block">
-          <div className="eyebrow"><Sparkles size={15} /> A LEGACY THAT LIVES ON</div>
-          <h1 id="hero-title">Your life.<br /><span>Your legacy.</span></h1>
-          <p className="hero-copy">A thoughtful place for the stories, memories, values and wishes you want to preserve — and pass on beyond generations.</p>
-          <button className="primary-link" type="button" onClick={() => { setAuthMode('signup'); setAuthOpen(true) }}>Begin your story <ArrowUpRight size={17} /></button>
+          <div className="eyebrow"><Sparkles size={15} /> YOUR LIFE, ORGANISED FOR THE YEARS AHEAD</div>
+          <h1 id="hero-title">Keep what matters.<br /><span>Pass on what lasts.</span></h1>
+          <p className="hero-copy">SOOULL is your private space to preserve life stories, organise important records, save personal messages and decide what trusted people may receive in the future.</p>
+          <div className="hero-actions">
+            <button className="primary-link" type="button" onClick={() => { setAuthMode('signup'); setAuthOpen(true) }}>Create your private space <ArrowUpRight size={17} /></button>
+            <button className="hero-secondary-link" type="button" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>See how SOOULL works</button>
+          </div>
+          <p className="hero-trust-note"><ShieldCheck size={15} /> Private by design. You control your information and sharing choices.</p>
         </div>
         <div className="hero-artwork" aria-label="SOOULL flower and infinity emblem">
           <div className="art-orbit art-orbit-outer" />
@@ -1997,27 +2001,61 @@ export default function App() {
           <div className="art-glow" />
           <BrandMark large />
           <div className="art-wordmark">SOOULL</div>
-          <div className="art-tagline">YOUR LIFE · YOUR LEGACY · BEYOND GENERATIONS</div>
+          <div className="art-tagline">YOUR LIFE · YOUR LEGACY · YOUR CHOICE</div>
           <div className="art-rule"><span /></div>
         </div>
-        <div className="hero-bottom-note">A living legacy, shaped by you.</div>
+        <div className="hero-bottom-note">One secure place for the things you want remembered.</div>
       </section>
 
       <section className="pillars" id="meaning" aria-labelledby="pillars-heading">
         <div className="section-heading">
-          <span className="eyebrow">BUILT AROUND WHAT MATTERS</span>
-          <h2 id="pillars-heading">Some things deserve to outlast us.</h2>
-          <p>SOOULL is being built to help you keep them close and pass them forward.</p>
+          <span className="eyebrow">WHAT YOU CAN DO WITH SOOULL</span>
+          <h2 id="pillars-heading">More than a place to store memories.</h2>
+          <p>Bring your personal stories, essential records and future wishes together, with clear controls over who can see what.</p>
         </div>
         <div className="pillar-grid">
-          {pillars.map(({ icon: Icon, title, description }, index) => (
-            <article className="pillar-card" key={title}>
-              <span className="pillar-index">0{index + 1}</span>
-              <span className="pillar-icon"><Icon size={22} strokeWidth={1.7} /></span>
-              <h3>{title}</h3><p>{description}</p>
-            </article>
-          ))}
+          <article className="pillar-card"><span className="pillar-index">01</span><span className="pillar-icon"><BookHeart size={22} /></span><h3>Preserve your stories</h3><p>Write life stories, family memories, milestones and lessons. Keep the details, dates and moments you want future generations to know.</p></article>
+          <article className="pillar-card"><span className="pillar-index">02</span><span className="pillar-icon"><LockKeyhole size={22} /></span><h3>Safekeep important records</h3><p>Organise private documents, photos, audio, video and personal reference records in one account you control.</p></article>
+          <article className="pillar-card"><span className="pillar-index">03</span><span className="pillar-icon"><Users size={22} /></span><h3>Choose trusted people</h3><p>Record the people you trust and define specific items they may be considered to receive. Adding a contact does not give them account access.</p></article>
+          <article className="pillar-card"><span className="pillar-index">04</span><span className="pillar-icon"><Heart size={22} /></span><h3>Prepare your legacy</h3><p>Save values, wishes, letters and guidance you want to leave behind, organised so they are easier to understand.</p></article>
+          <article className="pillar-card"><span className="pillar-index">05</span><span className="pillar-icon"><ShieldCheck size={22} /></span><h3>Control future access</h3><p>Set inactivity or life-event based plans and select content for each recipient. SOOULL does not automatically hand over your whole account.</p></article>
+          <article className="pillar-card"><span className="pillar-index">06</span><span className="pillar-icon"><Download size={22} /></span><h3>Back up your information</h3><p>Export a personal backup and restore it to your account when needed. Keep your own copy of important information.</p></article>
         </div>
+      </section>
+
+      <section className="how-section" id="how-it-works" aria-labelledby="how-heading">
+        <div className="section-heading">
+          <span className="eyebrow">A CLEAR, PERSONAL PROCESS</span>
+          <h2 id="how-heading">How SOOULL works</h2>
+          <p>You decide what to preserve, how to organise it and whether anything should ever be shared.</p>
+        </div>
+        <div className="how-grid">
+          <article><span>1</span><h3>Create your space</h3><p>Set up your account and protect it with your sign-in and available security options.</p></article>
+          <article><span>2</span><h3>Add what matters</h3><p>Write stories, save legacy notes, upload private files and organise important references.</p></article>
+          <article><span>3</span><h3>Set your choices</h3><p>Add trusted contacts and choose exactly which eligible records relate to each person.</p></article>
+          <article><span>4</span><h3>Stay in control</h3><p>Review your plan, confirm activity and keep a backup. Requests for future access require checks and review.</p></article>
+        </div>
+      </section>
+
+      <section className="privacy-section" aria-labelledby="privacy-heading">
+        <div className="privacy-copy">
+          <span className="eyebrow">YOUR INFORMATION. YOUR DECISIONS.</span>
+          <h2 id="privacy-heading">Private does not mean complicated.</h2>
+          <p>SOOULL is designed around account-level privacy, controlled sharing and clear user choices. Your trusted contacts do not receive your password, wallet credentials or unrestricted access to your account.</p>
+        </div>
+        <div className="privacy-points">
+          <p><ShieldCheck size={18} /> Personal records are protected by account-based access controls.</p>
+          <p><Users size={18} /> Sharing is limited to the content and recipients you select.</p>
+          <p><LockKeyhole size={18} /> Sensitive administrator access is separated from ordinary member access.</p>
+          <p><Download size={18} /> You can create a backup copy of your account information.</p>
+        </div>
+      </section>
+
+      <section className="closing-cta">
+        <span className="eyebrow">START WITH WHAT MATTERS MOST</span>
+        <h2>Your story is yours to shape.</h2>
+        <p>Build a private place for the memories, records and messages you want to keep.</p>
+        <button className="primary-link" type="button" onClick={() => { setAuthMode('signup'); setAuthOpen(true) }}>Create your SOOULL account <ArrowUpRight size={17} /></button>
       </section>
 
       <footer className="footer">
